@@ -11,15 +11,11 @@ import sys, os
 import curses
 import time
 import subprocess
-
 from threading import *
+from ConfigParser import SafeConfigParser
 
 from pywsc.websocket import WebSocket
 #from websocket import *
-
-mtgox_account_name=""
-mtgox_account_pass=""
-
 
 def say(text):
   print text
@@ -27,35 +23,35 @@ def say(text):
 
 # websocket stuff
 
-def my_msg_handler(msg):
-  print 'Got "%s"!' % msg
+#def my_msg_handler(msg):
+#  print 'Got "%s"!' % msg
 # #define s self
 
 class Traitor:
   def __init__(S):
+    S.use_ws = False
     S.auto_update_depth = False
     S.auto_update_trade = True
-    S.connection = httplib2.HTTPSConnectionWithTimeout("mtgox.com:443", strict=False, timeout=10)
+#    S.connection = httplib2.HTTPSConnectionWithTimeout("mtgox.com:443", strict=False, timeout=10)
     S.display_height=20
     S.orders = {'btcs': -1, 'usds': -1}
     S.trades = []
 
+    # parse configfile
+    parser = SafeConfigParser()
+    parser.read('traidor.conf')
+    S.mtgox_account_name = parser.get('mtgox', 'account_name')
+    S.mtgox_account_pass = parser.get('mtgox', 'account_pass')
+
     t = Thread(target = S)
     t.start()
 
-    S.ws = WebSocket('ws://websocket.mtgox.com:80/mtgox')
-    S.ws.setEventHandlers(S.onOpen, S.onMessage, S.onClose)  
+    if S.use_ws:
+      S.ws = WebSocket('ws://websocket.mtgox.com:80/mtgox')
+      S.ws.setEventHandlers(S.onOpen, S.onMessage, S.onClose)  
 
-#    socket = WebSocket('ws://example.com/demo', onmessage=my_msg_handler)
-    #socket = WebSocket('ws://websocket.mtgox.com/mtgox', onmessage=my_msg_handler)
-    #socket.onopen = lambda: socket.send('Hello world!')
-
-    #try:
-    #  asyncore.loop()
-    #except KeyboardInterrupt:
-    #  socket.close()
-
-  # websocket callbacks
+  # --- websocket callbacks --------------------------------------------------------------------------------------------------
+  
   def onOpen(S):
     print "websocket open"
     #ws.send('Hello World!')
@@ -141,7 +137,7 @@ class Traitor:
   def onClose(S):
     print "websocket closed"
 
-  # json stuff
+  # --- json stuff ----------------------------------------------------------------------------------------------------------------------
   
   def request_json_old(S, url, params={}):
     headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "application/json"}
@@ -174,8 +170,8 @@ class Traitor:
 
 
   def request_json_authed(S, url, params={}):
-    params['name'] = mtgox_account_name
-    params['pass'] = mtgox_account_pass
+    params['name'] = S.mtgox_account_name
+    params['pass'] = S.mtgox_account_pass
     return S.request_json(url, params)
 
   def request_market(S):
@@ -265,14 +261,14 @@ class Traitor:
             s[s_i] += "  |  " + str
             s_i -= 1
 
-    # trades
+    # trades (websocket trades)
     #i = len(s)
     #for t in sorted(S.trades, reverse=True)[:len(s)]:
     #  i -= 1
     #  str = "|  %s: [trade %s]: %5.1f for %.4f - %s" % tuple(t) #(t[0], t[1], t[2], t[3])
     #  s[i] += str
 
-    # trades2
+    # trades2 (trade API trades)
     i = 0 #len(s)
     for t in S.trades2[-len(s):]:
       tm = time.localtime(t['date'])
@@ -376,13 +372,13 @@ class Traitor:
 
   def __call__(S): # mainloop
     run = reload = True;
-    use_ws = False
+    
     while (run):
       if (reload): 
         S.request_stuff()
         S.show_depth()
       #print "  dmz width: %.4f\n" % S.dmz_width
-      if use_ws:
+      if S.use_ws:
         while not S.ws.connected:
           try:
             S.ws.connect();
@@ -410,7 +406,7 @@ class Traitor:
         elif key[0] == 'x': S.bot_test()
           
       else: S.show_depth(); S.show_orders()
-    if use_ws: S.ws.close()
+    if S.use_ws: S.ws.close()
     
 t = Traitor()
 #t.mainloop()

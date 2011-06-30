@@ -9,3 +9,8 @@ YOUR OWN RISK!
 
 some GPL license
 
+--- GETTING STARTED ---
+
+#> cp traidor.conf.sample traidor.conf
+#> edit traidor.conf
+#> python traidor.py

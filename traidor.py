@@ -3,29 +3,22 @@
 #import traitor_config
 
 import json
-import urllib, httplib2
-import urllib2
-#import httplib
-#import termios, fcntl, 
+import urllib, urllib2 #, httplib2
 import sys, os
 import curses
 import time
 import subprocess
 from threading import *
 from ConfigParser import SafeConfigParser
-
 from pywsc.websocket import WebSocket
-#from websocket import *
 
+# talking
 def say(text):
   print text
   #festival = subprocess.os.popen2("echo '(SayText \"" + text.replace("'", "") + "\")' | /usr/bin/festival --pipe")
 
-# websocket stuff
-
-#def my_msg_handler(msg):
-#  print 'Got "%s"!' % msg
-# #define s self
+# maybe alternative for /code/getTrades.php before websocket is back
+# http://bitcoincharts.com/t/trades.csv?symbol=mtgoxUSD&start=$UNIXTIME
 
 class Traitor:
   def __init__(S):
@@ -350,13 +343,14 @@ class Traitor:
 
 
   def show_help(S):
-    print "\n--- help -------------------------\n\
-<ret>  reload from mtgox\n\
+    print "\n--- help -----------------------------------------------------\n\
     h                     this help\n\
-    m                     market - show bids and asks\n\
-    r                     reload - reload order book from mtgox and show it\n\
+    <ret>                 show public order book, recent trades and your order book\n\
+    r                     reload - reload public order book and trades\n\
     b  <amount> <price>   enter order to buy <amount> btc at <price>\n\
     s  <amount> <price>   enter order to sell <amount> btc at <price>\n\
+    o                     view your order book\n\
+    d  <index>            delete order at <index> from orderbook\n\
     q                     quit\n\
 "
   def getPrompt(S, infoline):
@@ -377,6 +371,7 @@ class Traitor:
       if (reload): 
         S.request_stuff()
         S.show_depth()
+      print "\n"
       #print "  dmz width: %.4f\n" % S.dmz_width
       if S.use_ws:
         while not S.ws.connected:

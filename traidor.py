@@ -53,7 +53,7 @@ class Traitor:
     #print "-onMessage:", message
     update = False
     m = json.loads(message)
-    #print m
+    print m
     channel = m['channel']
     op = m['op']
     #print 'message in channel ', channel, ' op: ', op
@@ -197,6 +197,7 @@ class Traitor:
   
   def show_orders(S):
     #print S.orders
+    print "\n"
     i = 0
     for o in sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True):
       #print "{%s}: %s %s" % (o['oid'], o['amount'], o['price'])
@@ -347,10 +348,11 @@ class Traitor:
     h                     this help\n\
     <ret>                 show public order book, recent trades and your order book\n\
     r                     reload - reload public order book and trades\n\
-    b  <amount> <price>   enter order to buy <amount> btc at <price>\n\
-    s  <amount> <price>   enter order to sell <amount> btc at <price>\n\
+    b <amount> <price>    enter order to buy <amount> btc at <price>\n\
+    s <amount> <price>    enter order to sell <amount> btc at <price>\n\
     o                     view your order book\n\
-    d  <index>            delete order at <index> from orderbook\n\
+    d <index>             delete order at <index> from orderbook\n\
+    d <lines>             set height of depth display\n\
     q                     quit\n\
 "
   def getPrompt(S, infoline):
@@ -371,7 +373,6 @@ class Traitor:
       if (reload): 
         S.request_stuff()
         S.show_depth()
-      print "\n"
       #print "  dmz width: %.4f\n" % S.dmz_width
       if S.use_ws:
         while not S.ws.connected:
@@ -388,7 +389,7 @@ class Traitor:
       if (len(key) > 0):
         if key[0] == 'q': run = False
         elif key[0] == 'h': S.show_help()
-        elif key[0] == 'b' or key[0] == 's': S.trade(key); reload = True
+        elif key[0] == 'b' or key[0] == 's': S.trade(key); S.show_orders()
         elif key[0] == 'c': S.cancel_order(key); reload = True
         elif key[0] == 'a': S.auto_update_depth = not S.auto_update_depth
         elif key[0] == 'r': reload = True;

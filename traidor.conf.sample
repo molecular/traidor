@@ -1,3 +1,5 @@
+[main]
+
 [mtgox]
 account_name: change_to_your_mtgox_account_name
 account_pass: change_to_your_mtgox_account_pass

@@ -53,6 +53,7 @@ class Traitor:
     parser.read('traidor.conf')
     S.mtgox_account_name = parser.get('mtgox', 'account_name')
     S.mtgox_account_pass = parser.get('mtgox', 'account_pass')
+    S.donated = parser.has_option('main', 'donated')
 
     t = Thread(target = S)
     t.start()
@@ -390,7 +391,7 @@ class Traitor:
       ratio = S.orders['usds'] / S.orders['btcs']
     else: ratio = -1
     #return "\n%s | span %.4f | %.2f BTC, %.2f USD | %.2f #> " % (infoline, S.dmz_width, S.orders['btcs'], S.orders['usds'], ratio)
-    return "\n%s | %s dmz | %s BTC, %s USD | [h]elp #> " % (infoline, S.dmz_width.quantize(USD_PREC), S.orders['btcs'].quantize(BTC_PREC), S.orders['usds'].quantize(USD_PREC) )
+    return "\n%s | %s BTC, %s USD | [h]elp #> " % (infoline, S.orders['btcs'].quantize(BTC_PREC), S.orders['usds'].quantize(USD_PREC) )
 
   def prompt(S, infoline):
     sys.stdout.write(S.getPrompt(infoline))
@@ -400,6 +401,7 @@ class Traitor:
     global PRICE_PREC
     run = reload = True;
     
+    counter = 0
     while (run):
       if (reload): 
         S.request_stuff()
@@ -416,7 +418,7 @@ class Traitor:
         
       #S.print_stuff();
       reload = False;
-      key = raw_input(S.getPrompt('INITIALIZED'));
+      key = raw_input(S.getPrompt('mtgox'));
       if (len(key) > 0):
         if key[0] == 'q': run = False
         elif key[0] == 'h': S.show_help()
@@ -432,13 +434,11 @@ class Traitor:
         elif key[0] == 'd': S.display_height = int(key[1:])
         elif key[0] == 'x': S.bot_test()
         elif key[0] == 'p': PRICE_PREC = Decimal(key[2:]); reload = True
-          
-      else: S.show_depth(); S.show_orders()
+      else: S.show_depth();
+      counter += 1
+      if (counter % 7) == 3 and not S.donated:
+        print '\n\n\n\n\nplease consider donating to 1Ct1vCN6idU1hKrRcmR96G4NgAgrswPiCn\n\n\n(to remove donation msg, put "donated=1" into configfile, section [main])\n'
     if S.use_ws: S.ws.close()
     
 t = Traitor()
 #t.mainloop()
-  
-
-
-

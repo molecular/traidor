@@ -22,7 +22,7 @@ def say(text):
 
 class Traitor:
   def __init__(S):
-    S.use_ws = False
+    S.use_ws = True
     S.auto_update_depth = False
     S.auto_update_trade = True
 #    S.connection = httplib2.HTTPSConnectionWithTimeout("mtgox.com:443", strict=False, timeout=10)
@@ -189,8 +189,11 @@ class Traitor:
   def request_stuff(S):
     #S.balance = S.request_json_authed('/code/getFunds.php')
     #print S.balance;
+    print 'S.orders';
     S.orders = S.request_json_authed('/code/getOrders.php')
+    print 'S.ticker';
     S.ticker = S.request_json_authed('/code/data/ticker.php')
+    print 'S.trades2';
     S.trades2 = S.request_json('/code/data/getTrades.php')
     #print S.trades2;
     S.request_market();
@@ -280,8 +283,8 @@ class Traitor:
     p = key.split(' ')
     print p
     type = 'unknown'
-    if p[0][0] == 'b': type = 'buy'; m = 'bids'; air = 0.00002
-    if p[0][0] == 's': type = 'sell'; m = 'asks'; air = -0.00002
+    if p[0][0] == 'b': type = 'buy'; m = 'bids'; air = 0.0001
+    if p[0][0] == 's': type = 'sell'; m = 'asks'; air = -0.0001
     vol = p[1]
     price_str = ''
     if len(p) >= 3: price_str = p[2]
@@ -292,6 +295,7 @@ class Traitor:
     else:
       if price_str == '': index = 0
       else: index = int(price_str)
+      if m == 'bids': index = -index
       print 'index: ', index, ' market: ', S.market[m][index]
       price = float(S.market[m][index][0]) + air
       
@@ -389,8 +393,8 @@ class Traitor:
       if (len(key) > 0):
         if key[0] == 'q': run = False
         elif key[0] == 'h': S.show_help()
-        elif key[0] == 'b' or key[0] == 's': S.trade(key); S.show_orders()
-        elif key[0] == 'c': S.cancel_order(key); reload = True
+        elif key[0] == 'b' or key[0] == 's': S.trade(key)
+        elif key[0] == 'c': S.cancel_order(key)
         elif key[0] == 'a': S.auto_update_depth = not S.auto_update_depth
         elif key[0] == 'r': reload = True;
         elif key[0] == 'o': S.show_orders()

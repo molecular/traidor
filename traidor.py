@@ -2,7 +2,7 @@
           
 #import traitor_config
 
-import json
+import simplejson as json
 import urllib, urllib2 #, httplib2
 import sys, os
 import curses
@@ -11,6 +11,24 @@ import subprocess
 from threading import *
 from ConfigParser import SafeConfigParser
 from pywsc.websocket import WebSocket
+from decimal import Decimal
+
+BTC_PREC = Decimal('0.00000001')
+USD_PREC = Decimal('0.0001')
+PRICE_PREC = Decimal('0.0001')
+VOL_PREC = Decimal('0.1')
+VOL2_PREC = Decimal('0')
+MYVOL_PREC = Decimal('0.01')
+
+def convert_certain_json_objects_to_decimal(dct):
+  for k in ('amount', 'price', 'btcs', 'usds'):
+    if k in dct: dct[k] = Decimal(dct[k])
+  for k in ('asks', 'bids'):
+    if k in dct: 
+      for idx in range(len(dct[k])):
+        for i in (0,1): 
+          dct[k][idx][i] = Decimal(dct[k][idx][i]) 
+  return dct
 
 # talking
 def say(text):
@@ -22,7 +40,7 @@ def say(text):
 
 class Traitor:
   def __init__(S):
-    S.use_ws = True
+    S.use_ws = False
     S.auto_update_depth = False
     S.auto_update_trade = True
 #    S.connection = httplib2.HTTPSConnectionWithTimeout("mtgox.com:443", strict=False, timeout=10)
@@ -52,7 +70,7 @@ class Traitor:
   def onMessage(S, message):
     #print "-onMessage:", message
     update = False
-    m = json.loads(message)
+    m = json.loads(message, use_decimal=True)
     print m
     channel = m['channel']
     op = m['op']
@@ -78,7 +96,7 @@ class Traitor:
       #    depth_type = 'asks'
       #else: 
       #  type = 'no depth data'
-      S.trades.append([trade['date'], trade['tid'], float(trade['amount']), float(trade['price']), type])
+      S.trades.append([trade['date'], trade['tid'], trade['amount'], trade['price'], type])
       update = S.auto_update_trade
 
       S.last_price = float(trade['price'])
@@ -117,7 +135,7 @@ class Traitor:
       if S.depth[type][price] < 1E-4: 
         S.depth[type].pop(price)
         if S.auto_update_depth: print 'DEPTH MANAGMENT: type %s: removed key %s' % (type, price)
-      S.dmz_width = abs( float(sorted(S.depth['bids'], reverse=True)[0]) - float(sorted(S.depth['asks'])[0]) )
+      S.dmz_width = sorted(S.depth['asks'])[0] - sorted(S.depth['bids'], reverse=True)[0]
       update = S.auto_update_depth
       #for x in sorted(S.depth[type]):
       #  print x, S.depth[type][x]
@@ -147,20 +165,22 @@ class Traitor:
     try:
       response = S.connection.getresponse()
       print response.getheaders()
-      return json.loads(response.read())
+      return json.loads(response.read(), use_decimal=True)
     except (httplib2.httplib.HTTPException, httplib2.httplib.ResponseNotReady):
       print 'CONNECTION reestablishment -------------------------'
       S.connection.close()
       S.connection = httplib.HTTPSConnection("mtgox.com:443", strict=True, timeout=10)
       S.connection.request('POST', url, urllib.urlencode(params), headers)
-      return json.loads(S.connection.getresponse().read())
+      return json.loads(S.connection.getresponse().read(), use_decimal=True)
+
 
   def request_json(S, url, params={}):
     data = urllib.urlencode(params)
     req = urllib2.Request("https://mtgox.com:443" + url, data)
     response = urllib2.urlopen(req)
-    return json.loads(response.read())
-
+    #s = response.read()
+    #print s
+    return json.load(response, use_decimal=True, object_hook=convert_certain_json_objects_to_decimal)
 
   def request_json_authed(S, url, params={}):
     params['name'] = S.mtgox_account_name
@@ -174,29 +194,31 @@ class Traitor:
     S.lowest_ask = sorted(S.market['asks'])[0][0];
     S.highest_bid_vol = S.market['bids'][0][1];
     S.lowest_ask_vol = S.market['asks'][0][1];
-    S.dmz_width = abs(S.highest_bid - S.lowest_ask);
+    S.dmz_width = S.highest_bid - S.lowest_ask;
 
     # S.market (list) -> S.depth (dict)
     S.depth = {}
     for kind in ('bids', 'asks'):
       S.depth[kind] = {}
       for o in S.market[kind]:
-        price = float(o[0])
-        if not S.depth[kind].has_key(price): S.depth[kind][price] = float(0)
-        S.depth[kind][price] += float(o[1])
+        price = o[0].quantize(PRICE_PREC)
+        if not S.depth[kind].has_key(price): S.depth[kind][price] = Decimal(0)
+        S.depth[kind][price] += o[1]
       
 
   def request_stuff(S):
     #S.balance = S.request_json_authed('/code/getFunds.php')
     #print S.balance;
-    print 'S.orders';
+    #print 'orders';
     S.orders = S.request_json_authed('/code/getOrders.php')
-    print 'S.ticker';
+    #print 'ticker';
     S.ticker = S.request_json_authed('/code/data/ticker.php')
-    print 'S.trades2';
+    #print 'trades2';
     S.trades2 = S.request_json('/code/data/getTrades.php')
+    #print 'market';
     #print S.trades2;
     S.request_market();
+    #print 'request_stuff() done'
   
   def show_orders(S):
     #print S.orders
@@ -208,18 +230,18 @@ class Traitor:
       if type==1: type = 'ask'
       elif type==2: type = 'bid'
       else: type = 'unknown'
-      print "[%3i] %s {%s}: %5.1f %.4f" % (i, type, o['oid'], float(o['amount']), float(o['price']))
+      print "[%3i] %s {%s}: %13s %7s" % (i, type, o['oid'], o['amount'].quantize(BTC_PREC), o['price'].quantize(PRICE_PREC))
       i += 1
 
   def show_depth(S):
-    print '\n    ----- BUYING BITCOIN ------- | ------- SELLING BITCOIN ------- |  ------ TRADES -------'
-    print '                              '
-    print '[IDX]   YOU  bid     vol     accumulated     vol     ask    YOU'
-    print '                              '
+    print '\n       ----- BUYING BITCOIN ------ | ------ SELLING BITCOIN ------ | ----------- TRADES ------------'
+    print '                                                                   |'
+    print '[IDX]   YOU    bid    vol     accumulated     vol     ask    YOU   | time      amount   price'
+    print '                                                                   |'
     s = []
     my_orders = S.orders['orders']
     for kind in ('bids', 'asks'):
-      akku = 0.0;
+      akku = Decimal(0);
         
       # bids
       if (kind=='bids'):
@@ -229,12 +251,14 @@ class Traitor:
         for price in sorted(S.depth[kind].keys(), reverse = False):
           i -= 1
           vol = S.depth[kind][price]
-          str = "%.4f %5.0f   %5.0f" % (price, vol, akku)  
-          my_vol = 0.0
+          #str = "%.4f %5.0f   %5.0f" % (price, vol, akku)  
+          str = "%7s %5s   %5s" % (price.quantize(PRICE_PREC), vol.quantize(VOL2_PREC), akku.quantize(VOL2_PREC))  
+          my_vol = Decimal(0)
           for my_order in my_orders:
-            if ("%.4f" % my_order['price'] == "%.4f" % price): my_vol += my_order['amount']
-          if (my_vol > 0): str = '%5.1f %s' % (my_vol,str)
-          else: str = '      ' + str
+            if my_order['price'].quantize(PRICE_PREC) == price.quantize(PRICE_PREC): 
+              my_vol += my_order['amount']
+          if (my_vol > 0): str = '%6s %s' % (my_vol.quantize(MYVOL_PREC),str)
+          else: str = '       ' + str
           str = "[%3i]" % i + str
           s.append(str)
           akku -= vol
@@ -243,16 +267,17 @@ class Traitor:
       if (kind=='asks'):
         s_i = len(s) - 1
         #i = len(S.depth[kind]) - 1
-        print 'i: ', i, ', s_i: ', s_i
+        #print 'i: ', i, ', s_i: ', s_i
         for price in sorted(S.depth[kind].keys()):
           #i -= 1
           vol = S.depth[kind][price]
           akku += vol
-          str = "%-5.0f    %-5.0f %.4f " % (akku, vol, price)
-          my_vol = 0.0
+          str = "%-5s   %-5s %-7s" % (akku.quantize(VOL2_PREC), vol.quantize(VOL2_PREC), price.quantize(PRICE_PREC))
+          my_vol = Decimal(0)
           for my_order in my_orders:
-            if ("%.4f" % my_order['price'] == "%.4f" % price): my_vol += my_order['amount']
-          if (my_vol > 0): str = str + '%-5.1f   ' % my_vol
+            if my_order['price'].quantize(PRICE_PREC) == price.quantize(PRICE_PREC): 
+              my_vol += my_order['amount']
+          if (my_vol > 0): str = str + ' %-6s ' % my_vol.quantize(MYVOL_PREC)
           else: str += '        '
           if s_i >= 0:
             s[s_i] += "  |  " + str
@@ -269,7 +294,8 @@ class Traitor:
     i = 0 #len(s)
     for t in S.trades2[-len(s):]:
       tm = time.localtime(t['date'])
-      str = "| %s: %5.4f for %.4f" % (time.strftime('%H:%M:%S',tm), float(t['amount']), float(t['price']))
+      #str = "| %s: %5.4f for %.4f" % (time.strftime('%H:%M:%S',tm), float(t['amount']), float(t['price']))
+      str = "| %s: %9s for %s" % (time.strftime('%H:%M:%S',tm), t['amount'].quantize(VOL_PREC), t['price'].quantize(USD_PREC))
       s[i] += str
       i += 1
     
@@ -348,7 +374,7 @@ class Traitor:
 
 
   def show_help(S):
-    print "\n--- help -----------------------------------------------------\n\
+    print "\n\
     h                     this help\n\
     <ret>                 show public order book, recent trades and your order book\n\
     r                     reload - reload public order book and trades\n\
@@ -363,14 +389,15 @@ class Traitor:
     if (S.orders['btcs'] != 0): 
       ratio = S.orders['usds'] / S.orders['btcs']
     else: ratio = -1
-    #return "\n%s | %.4f dmz | %.2f BTC, %.2f USD | %.2f #> " % (infoline, S.dmz_width, S.orders['btcs'], S.orders['usds'], ratio)
-    return "\n%s | %.4f dmz | %.2f BTC, %.2f USD | [h]elp #> " % (infoline, S.dmz_width, S.orders['btcs'], S.orders['usds'] )
+    #return "\n%s | span %.4f | %.2f BTC, %.2f USD | %.2f #> " % (infoline, S.dmz_width, S.orders['btcs'], S.orders['usds'], ratio)
+    return "\n%s | %s dmz | %s BTC, %s USD | [h]elp #> " % (infoline, S.dmz_width.quantize(USD_PREC), S.orders['btcs'].quantize(BTC_PREC), S.orders['usds'].quantize(USD_PREC) )
 
   def prompt(S, infoline):
     sys.stdout.write(S.getPrompt(infoline))
     sys.stdout.flush()
 
   def __call__(S): # mainloop
+    global PRICE_PREC
     run = reload = True;
     
     while (run):
@@ -393,8 +420,8 @@ class Traitor:
       if (len(key) > 0):
         if key[0] == 'q': run = False
         elif key[0] == 'h': S.show_help()
-        elif key[0] == 'b' or key[0] == 's': S.trade(key)
-        elif key[0] == 'c': S.cancel_order(key)
+        elif key[0] == 'b' or key[0] == 's': S.trade(key); reload = True
+        elif key[0] == 'c': S.cancel_order(key); reload = True
         elif key[0] == 'a': S.auto_update_depth = not S.auto_update_depth
         elif key[0] == 'r': reload = True;
         elif key[0] == 'o': S.show_orders()
@@ -404,6 +431,7 @@ class Traitor:
           print S.ticker
         elif key[0] == 'd': S.display_height = int(key[1:])
         elif key[0] == 'x': S.bot_test()
+        elif key[0] == 'p': PRICE_PREC = Decimal(key[2:]); reload = True
           
       else: S.show_depth(); S.show_orders()
     if S.use_ws: S.ws.close()

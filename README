@@ -7,6 +7,10 @@ YOUR OWN RISK!
 
 the code is very much a hack in progress and also a complete MESS, if you expect production quality code or even just good code, GO AWAY
 
+--- DEPENDENCIES (likely incomplete ---
+
+ * simplejson
+
 --- LICENSE ---
 
 some GPL license

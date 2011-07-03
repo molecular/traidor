@@ -15,7 +15,7 @@ from decimal import Decimal
 
 BTC_PREC = Decimal('0.00000001')
 USD_PREC = Decimal('0.0001')
-PRICE_PREC = Decimal('0.001')
+PRICE_PREC = Decimal('0.00001')
 VOL_PREC = Decimal('0.1')
 VOL2_PREC = Decimal('0')
 MYVOL_PREC = Decimal('0.01')
@@ -30,6 +30,21 @@ def convert_certain_json_objects_to_decimal(dct):
           dct[k][idx][i] = Decimal(dct[k][idx][i]) 
   return dct
 
+# align Decimal number at decimal point
+def dec(dec, before, after):
+  rc = ''
+  if dec.as_tuple().exponent >= 0:
+    rc = "%i.0" % int(dec)
+    rc = "%*s" % (before+1-len(rc), rc)
+  else:
+    rc = str(dec.normalize())
+  #print dec, rc
+  if rc.find('.') >= 0:
+    rc = "%*s" % (before-rc.find('.')+len(rc), rc)
+  rc += '                          '[:(after+before+1)-len(rc)]
+  rc = rc[:(before+after+1)]
+  return rc.replace('0.', 'o.').replace('.0', '.o')
+
 # talking
 def say(text):
   print text
@@ -38,10 +53,13 @@ def say(text):
 # maybe alternative for /code/getTrades.php before websocket is back
 # http://bitcoincharts.com/t/trades.csv?symbol=mtgoxUSD&start=$UNIXTIME
 
+class Trade:
+  def __init__(S, time, amount, price):
+    (S.time, S.amount, S.price) = (time, Decimal(amount), Decimal(price))
+
 class Traitor:
   def __init__(S):
     S.order_distance = Decimal('0.0001')
-    S.use_ws = False
     S.auto_update_depth = False
     S.auto_update_trade = True
 #    S.connection = httplib2.HTTPSConnectionWithTimeout("mtgox.com:443", strict=False, timeout=10)
@@ -54,7 +72,9 @@ class Traitor:
     parser.read('traidor.conf')
     S.mtgox_account_name = parser.get('mtgox', 'account_name')
     S.mtgox_account_pass = parser.get('mtgox', 'account_pass')
-    S.donated = parser.has_option('main', 'donated')
+    S.donated = parser.getboolean('main', 'donated')
+    S.use_ws = parser.getboolean('main', 'use_websockets')
+    S.debug_ws = parser.getboolean('main', 'debug_websockets')
 
     t = Thread(target = S)
     t.start()
@@ -66,14 +86,13 @@ class Traitor:
   # --- websocket callbacks --------------------------------------------------------------------------------------------------
   
   def onOpen(S):
-    print "websocket open"
-    #ws.send('Hello World!')
+    if S.debug_ws: print "websocket open"
       
   def onMessage(S, message):
     #print "-onMessage:", message
     update = False
     m = json.loads(message, use_decimal=True)
-    print m
+    if S.debug_ws: print m
     channel = m['channel']
     op = m['op']
     #print 'message in channel ', channel, ' op: ', op
@@ -98,11 +117,13 @@ class Traitor:
       #    depth_type = 'asks'
       #else: 
       #  type = 'no depth data'
-      S.trades.append([trade['date'], trade['tid'], trade['amount'], trade['price'], type])
+      
+      #S.trades.append([trade['date'], trade['tid'], trade['amount'], trade['price'], type])
+      S.trades.append(Trade(trade['date'], trade['amount'], trade['price']))
       update = S.auto_update_trade
 
-      S.last_price = float(trade['price'])
-      S.trade_happened()
+      #S.last_price = float(trade['price'])
+      #S.trade_happened()
 
 
       # adjust depth data
@@ -218,7 +239,7 @@ class Traitor:
     #print 'ticker';
     S.ticker = S.request_json_authed('/code/data/ticker.php')
     #print 'trades2';
-    S.trades2 = S.request_json('/code/data/getTrades.php')
+    if not S.use_ws: S.trades2 = S.request_json('/code/data/getTrades.php')
     #print 'market';
     #print S.trades2;
     S.request_market();
@@ -228,21 +249,24 @@ class Traitor:
     #print S.orders
     print "\n"
     i = 0
-    print "[IDX] {                id                 } | typ    volume  price\n"
+    print "[IDX] {                id                  } | typ    volume   price    - status"
+    print "                                             |"
+    type = -1
     for o in sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True):
       #print "{%s}: %s %s" % (o['oid'], o['amount'], o['price'])
+      if o['type'] == 2 and type == 'ask': print "                                             |"
       type = o['type']
       if type==1: type = 'ask'
       elif type==2: type = 'bid'
       else: type = 'unknown'
-      print "[%3i] {%s} | %s %7s %7s" % (i, o['oid'], type, o['amount'].quantize(MYVOL_PREC), o['price'].quantize(PRICE_PREC))
+      print "[%3i] {%s} | %s %s %s - %i %s" % (i, o['oid'], type, dec(o['amount'], 4, 5), dec(o['price'], 3, 5), o['status'], o['real_status'])
       i += 1
 
   def show_depth(S):
-    print '\n       ----- BUYING BITCOIN ------ | ------ SELLING BITCOIN ------ | ----------- TRADES ------------'
-    print '                                                                   |'
-    print '[IDX]   YOU    bid    vol     accumulated     vol     ask    YOU   |  time        amount       price'
-    print '                                                                   |'
+    print '\n       ------ BUYING BITCOIN ------ | ------- SELLING BITCOIN ------ | ----------- TRADES ------------'
+    print '                                                                     |'
+    print '[IDX]   YOU   bid        vol   accumulated      vol   ask       YOU  |  time        amount       price'
+    print '                                                                     |'
     s = []
     my_orders = S.orders['orders']
     for kind in ('bids', 'asks'):
@@ -257,7 +281,7 @@ class Traitor:
           i -= 1
           vol = S.depth[kind][price]
           #str = "%.4f %5.0f   %5.0f" % (price, vol, akku)  
-          str = "%7s %5s   %5s" % (price.quantize(PRICE_PREC), vol.quantize(VOL2_PREC), akku.quantize(VOL2_PREC))  
+          str = "%s %s %5s" % (dec(price, 3, 5), dec(vol, 4, 1), akku.quantize(VOL2_PREC))  
           my_vol = Decimal(0)
           for my_order in my_orders:
             if my_order['price'].quantize(PRICE_PREC) == price.quantize(PRICE_PREC): 
@@ -277,7 +301,7 @@ class Traitor:
           #i -= 1
           vol = S.depth[kind][price]
           akku += vol
-          str = "%-5s   %-5s %-7s" % (akku.quantize(VOL2_PREC), vol.quantize(VOL2_PREC), price.quantize(PRICE_PREC))
+          str = "%-5s %s %s" % (akku.quantize(VOL2_PREC), dec(vol, 4, 1), dec(price, 3, 5))
           my_vol = Decimal(0)
           for my_order in my_orders:
             if my_order['price'].quantize(PRICE_PREC) == price.quantize(PRICE_PREC): 
@@ -289,20 +313,29 @@ class Traitor:
             s_i -= 1
 
     # trades (websocket trades)
-    #i = len(s)
-    #for t in sorted(S.trades, reverse=True)[:len(s)]:
-    #  i -= 1
-    #  str = "|  %s: [trade %s]: %5.1f for %.4f - %s" % tuple(t) #(t[0], t[1], t[2], t[3])
-    #  s[i] += str
-
-    # trades2 (trade API trades)
-    i = 0 #len(s)
-    for t in S.trades2[-S.display_height:]:
-      tm = time.localtime(t['date'])
-      #str = "| %s: %5.4f for %.4f" % (time.strftime('%H:%M:%S',tm), float(t['amount']), float(t['price']))
-      str = "|  %s %9s for %s" % (time.strftime('%H:%M:%S',tm), t['amount'].quantize(VOL_PREC), t['price'].quantize(USD_PREC))
+    i = 0
+    while i < S.display_height - len(S.trades):
+      s[i] += '|'
+      i += 1
+    #if i<0: i=0
+    #print 'display_height: ', S.display_height, ', i:', i
+    #if i > len(s): i = len(s)
+    for t in S.trades[-S.display_height:]:
+      #print i
+      # str = "|  %s %9s for %s" % (time.strftime('%H:%M:%S',tm), t['amount'].quantize(VOL_PREC), t['price'].quantize(USD_PREC))
+      tm = time.localtime(t.time)
+      str = "|  %s %9s for %s" % (time.strftime('%H:%M:%S',tm), t.amount.quantize(VOL_PREC), dec(t.price, 3, 5))
       s[i] += str
       i += 1
+
+    # trades2 (trade API trades)
+    #i = 0 #len(s)
+    #for t in S.trades2[-S.display_height:]:
+    #  tm = time.localtime(t['date'])
+    #  #str = "| %s: %5.4f for %.4f" % (time.strftime('%H:%M:%S',tm), float(t['amount']), float(t['price']))
+    #  str = "|  %s %9s for %s" % (time.strftime('%H:%M:%S',tm), t['amount'].quantize(VOL_PREC), t['price'].quantize(USD_PREC))
+    #  s[i] += str
+    #  i += 1
     
 
     for str in s[-S.display_height:]:
@@ -395,6 +428,9 @@ class Traitor:
     o                     view your order book\n\
     d <index>             delete order at <index> from orderbook\n\
     d <lines>             set height of depth display\n\
+    ws                    toggle websockets updates\n\
+    dws                   toggle websocket debugging output\n\
+    p <1..5>              set display precision\n\
     q                     quit\n\
 "
   def getPrompt(S, infoline):
@@ -422,7 +458,7 @@ class Traitor:
         while not S.ws.connected:
           try:
             S.ws.connect();
-            say("websocket connected")    
+            if debug_ws: say("websocket connected")    
           except:
             print 'connection problem, retrying later...'
             time.sleep(5);
@@ -431,7 +467,9 @@ class Traitor:
       reload = False;
       key = raw_input(S.getPrompt('mtgox'));
       if (len(key) > 0):
-        if key[0] == 'q': run = False
+        if key[:3] == 'dws': S.debug_ws = not S.debug_ws; print 'debug_ws=', S.debug_ws
+        elif key[:3] == 'ws': S.use_ws = not S.use_ws; print 'use_ws=', S.use_ws
+        elif key[0] == 'q': run = False
         elif key[0] == 'h': S.show_help()
         elif key[0] == 'b' or key[0] == 's': S.trade(key)
         elif key[0] == 'c': S.cancel_order(key); reload = True
@@ -444,10 +482,13 @@ class Traitor:
           print S.ticker
         elif key[0] == 'd': S.display_height = int(key[1:])
         elif key[0] == 'x': S.bot_test()
-        elif key[0] == 'p': PRICE_PREC = Decimal(key[2:]); reload = True
+        elif key[0] == 'p': 
+          p = int(key[1:])
+          if p<2 or p>5: print 'precision must be 2..5'
+          else: PRICE_PREC = Decimal(10) ** -p; reload = True
       else: S.show_depth();
       counter += 1
-      if (counter % 7) == 3 and not S.donated:
+      if (counter % 31) == 13 and not S.donated:
         print '\n\n\n\n\nplease consider donating to 1Ct1vCN6idU1hKrRcmR96G4NgAgrswPiCn\n\n\n(to remove donation msg, put "donated=1" into configfile, section [main])\n'
     if S.use_ws: S.ws.close()
     

@@ -13,14 +13,11 @@ import subprocess
 from threading import *
 from ConfigParser import SafeConfigParser
 from pywsc.websocket import WebSocket
-from decimal import Decimal as D
 import pygame
 
+from common import *
 from bot import *
 
-BTC_PREC = D('0.00000001')
-USD_PREC = D('0.0001')
-PRICE_PREC = D('0.00001')
 VOL_PREC = D('0.1')
 VOL2_PREC = D('0')
 MYVOL_PREC = D('0.01')
@@ -35,25 +32,6 @@ def convert_certain_json_objects_to_decimal(dct):
           dct[k][idx][i] = D(dct[k][idx][i]) 
   return dct
 
-# align D number at decimal point
-def dec(dec, before, after):
-  rc = ''
-  if dec.as_tuple().exponent >= 0:
-    rc = "%i.0" % int(dec)
-    rc = "%*s" % (before+1-len(rc), rc)
-  else:
-    rc = str(dec.normalize())
-  #print dec, rc
-  if rc.find('.') >= 0:
-    rc = "%*s" % (before-rc.find('.')+len(rc), rc)
-  rc += '                          '[:(after+before+1)-len(rc)]
-  rc = rc[:(before+after+1)]
-  return rc # rc.replace('0.', 'o.').replace('.0', '.o')
-
-# talking
-def say(text):
-  print text
-  #festival = subprocess.os.popen2("echo '(SayText \"" + text.replace("'", "") + "\")' | /usr/bin/festival --pipe")
 
 
 class Trade:
@@ -70,7 +48,7 @@ class Traidor:
     S.auto_update_depth = False
     S.auto_update_trade = True
 #    S.connection = httplib2.HTTPSConnectionWithTimeout("mtgox.com:443", strict=False, timeout=10)
-    S.display_height=20
+    S.display_height=10
     S.orders = {'btcs': -1, 'usds': -1}
     S.trades = []
 
@@ -98,6 +76,47 @@ class Traidor:
 
   def removeBot(S, bot):
     S.bots.remove(bot)
+
+  # --- bot support ----------------------------------------------------------------------------------------------------------
+  
+  def getBTC(S): return S.orders['btcs']
+  def getUSD(S): return S.orders['usds']
+
+  def get_order(S, oid):
+    # woah, friggin linear search, do something !! ^^
+    for o in S.orders['orders']: 
+      if o['oid'] == oid: return o
+
+  def get_orders(S):
+    #"""unclear if this should be in the bot api because of the json-deriven format of orders"""
+    return S.orders['orders']
+
+  def do_trade(S, type, vol, price):
+    key = raw_input("\n%s %s BTC for %s USD [y]es [n]o #> " % (type, vol, price))
+    if key[0] == 'y':
+      print 'TRADING'
+      result = S.request_json_authed('/code/' + type + 'BTC.php', params = {'amount': vol, 'price': price})
+      print '{%s}: %s' % (result['oid'], result['status'])
+      #S.request_orders()
+      S.orders['orders'] = result['orders']
+      return result['oid']
+    else:
+      print 'ABORTED'
+      return None
+
+  def do_cancel_order(S, oid):
+    print 'CANCELLING order {%s}' % oid
+    o = S.get_order(oid)
+    result = S.request_json_authed('/code/cancelOrder.php', {'oid': o['oid'], 'type': o['type']})
+    S.orders['orders'] = result['orders']
+    
+  def do_cancel_all_orders(S):
+    oids = list()
+    for o in S.get_orders():
+      oids.append(o['oid'])
+    for oid in oids:
+      S.do_cancel_order(oid)
+
 
   # --- websocket callbacks --------------------------------------------------------------------------------------------------
   
@@ -140,11 +159,9 @@ class Traidor:
       S.trades.append(trade)
       update = S.auto_update_trade
       
+      S.last_price = trade.price
       for bot in S.bots:
         bot.trade(trade)
-
-      S.last_price = trade.price
-      S.trade_happened()
 
 
       # adjust depth data
@@ -258,7 +275,7 @@ class Traidor:
     S.datalock.release()
 
   def request_ticker(S):
-    ticker = S.request_json_authed('/code/data/ticker.php')
+    S.ticker = S.request_json_authed('/code/data/ticker.php')
 
   def request_trades(S):
     S.datalock.acquire()
@@ -294,7 +311,7 @@ class Traidor:
     type = -1
     for o in sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True):
       #print "{%s}: %s %s" % (o['oid'], o['amount'], o['price'])
-      if abs(S.trades[-1].price - o['price']) < D('4'):
+      if abs(S.last_price - o['price']) < D('4'):
         if o['type'] == 2 and type == 'ask': print "                                             |"
         type = o['type']
         if type==1: type = 'ask'
@@ -412,16 +429,7 @@ class Traidor:
       
     # price = "%.4f" % price
     S.do_trade(type, vol, price)
-    
-  def do_trade(S, type, vol, price):
-    key = raw_input("\n%s %s BTC for %s USD [y]es [n]o #> " % (type, vol, price))
-    if key[0] == 'y':
-      print 'TRADING'
-      S.request_json_authed('/code/' + type + 'BTC.php', params = {'amount': vol, 'price': price})
-      S.request_orders()
-      S.show_orders()
-    else:
-      print 'ABORTED'
+    S.show_orders()
     
   def cancel_order(S, key):
     p = key.split(' ')
@@ -432,102 +440,10 @@ class Traidor:
       #key = raw_input("\ncancel order oid={%s} [y]es [n]o #> " % (o['oid']))
       key = raw_input("\ncancel order {%s} | %s for %s ? [y]es [n]o #>  " % (o['oid'], o['amount'], o['price']))
       if key[0] == 'y':
-        print 'CANCELLING order: ', o
-        S.request_json_authed('/code/cancelOrder.php', {'oid': o['oid'], 'type': o['type']})
+        print 'CANCELLING order {%s}' % o['oid']
+        S.do_cancel_order(o['oid'])
 
   # --- preliminary bot stuff (highly experimental, will be abstracted) -------------------------------
-
-  def bot_test(S):
-    S.trade_happened()
-
-  # bot callback
-  def trade_happened(S):
-    #print 'trade_happened()'
-    #S.last_price = S.trades[-1].price
-    
-    return
-    
-    # find my trades
-    S.my_highest_bid = D(0);
-    S.my_lowest_ask = D('1E12');
-    for o in sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True):
-      #print "{%s}: %s %s" % (o['oid'], o['amount'], o['price'])
-      type = o['type']
-      if type==1: type = 'ask'
-      elif type==2: type = 'bid'
-      if type == 'ask' and o['price'] <= S.my_lowest_ask: S.my_lowest_ask = o['price']
-      if type == 'bid' and o['price'] >= S.my_highest_bid: S.my_highest_bid = o['price']
-    print 'my hi/lo: %.4f/%.4f' % (S.my_highest_bid, S.my_lowest_ask)
-
-#    S.ticker = S.request_json_authed('/code/data/ticker.php')
-
-    # trade detector
-    traded = False;
-    #S.last_price = S.ticker['ticker']['last']
-    print "last_price: %s" % S.last_price
-    if S.last_price > S.my_lowest_ask:
-      traded = True
-    if S.last_price < S.my_highest_bid:
-      traded = True
-    if traded:
-      say("a trade must have happened")
-      
-    # calc some stuff
-    P = D(10) ** -8
-    (usd, btc) = (S.orders['usds'], S.orders['btcs'])
-    my_ratio = (usd / btc).quantize(P)
-    min_amount = D('0.5')
-    #min_amount_usd = D('5')
-    min_distance = D('0.1')
-    
-    return;
-    
-    # daloop
-    for kind in ('bids', 'asks'):
-      orders = sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse = (kind=='bids'))
-      print orders
-      depth = sorted(S.depth[kind].keys(), reverse = (kind=='bids'))
-      i = 0
-      print len(depth)
-      
-      def d(x): return dec(x, 5, 5)
-      old_rate = new_rate = S.last_price #.quantize(D('0.1'))
-      goon = True
-      while goon:
-        desired_usd = (usd + (new_rate * btc)) / 2
-        delta_usd = desired_usd - usd
-        # trade sim
-        delta_btc = -delta_usd / new_rate
-        do_trade = False
-        
-        #if delta_btc > min_amount and delta_usd < -min_amount:
-        #print '%s' % d(old_rate / new_rate)
-        if kind == 'bids': rate_change = ((old_rate / new_rate) - D('1.0'))
-        if kind == 'asks': rate_change = ((new_rate / old_rate) - D('1.0'))
-        if rate_change > D('0.01') and abs(delta_btc) > min_amount:
-          do_trade = True
-        if do_trade:
-          usd += delta_usd
-          btc += delta_btc
-          old_rate = new_rate
-          print "rate %s (+%s%%):  %s BTC | %s USD | ratio %s | desire %s USD -> delta %s USD | %s BTC | trading: %s" % (d(new_rate), dec(rate_change*D('100'), 5, 2), d(btc), d(usd), d(my_ratio), d(desired_usd), d(delta_usd), d(delta_btc), do_trade)
-          
-        if i < len(depth): # more depth data to look at?
-          next_price = depth[i]
-          new_rate = next_price #  + D('0.00001');
-          i += 1
-        else:
-          if kind == 'bids':
-            new_rate *= D('0.09');
-            new_rate -= D('0.05');
-          if kind == 'asks':
-            new_rate *= D('1.1');
-            new_rate += D('0.05');
-          
-        if new_rate <= D('1E-5'): goon = False
-        if new_rate >= D('1E5'): goon = False
-    
-
 
   def show_help(S):
     print "\n\
@@ -555,18 +471,62 @@ class Traidor:
     sys.stdout.write(S.getPrompt(infoline))
     sys.stdout.flush()
 
+  def cmd(S, cmd):
+    if (cmd.rfind(';') >= 0):
+      for c in cmd.split(';'): S.cmd(c.strip())
+    else:
+      if cmd[:3] == 'dws': S.debug_ws = not S.debug_ws; print 'debug_ws=', S.debug_ws
+      if cmd[:2] == 'ps': pygame.mixer.Sound(cmd[3:]).play()
+      elif cmd[:3] == 'ws': S.use_ws = not S.use_ws; print 'use_ws=', S.use_ws
+      elif cmd[:2] == 'lb': 
+        i=0
+        for bot in S.bots: print "[%2i]: %s" % (i, bot.getName())
+      elif cmd[:2] == 'tb': # BriggerBot
+        S.addBot(TriggerBot(t, cmd[2:]))
+      elif cmd[0] == 'q': S.run = False
+      elif cmd[0] == 'h': S.show_help()
+      elif cmd[0] == 'b' or cmd[0] == 's': S.trade(cmd)
+      elif cmd[0] == 'c': S.cancel_order(cmd); S.show_orders()
+      elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth
+      elif cmd[0] == 'r': S.reload = True;
+      elif cmd[0] == 'o': S.request_orders(); S.show_orders()
+      elif cmd[0] == 'e': S.show_depth()
+      #elif cmd[0] == 't': 
+      #  for x in S.ticker: print x
+      #  print S.ticker
+      elif cmd[0] == 'd': S.display_height = int(cmd[1:])
+      elif cmd[0] == 'p': 
+        p = int(cmd[1:])
+        try:
+          if p<2 or p>5: print 'precision must be 2..5'
+          else: PRICE_PREC = D(10) ** -p; S.reload = True
+        except: print 'exception parsing precision value: %s' % p
+          
+          
   def __call__(S): # mainloop
     global PRICE_PREC
     S.run = S.reload = True;
     
     # initial for bot, ned so wichtig auf dauer, kost zeit
-    S.request_trades()
+    # abhilfe: unten bei initialize bots nen fake-trade reinschreiben
+    # es geht glaub nur um S.last_trade? oder?
+    #S.request_trades()
+
+    S.request_orders()
+    S.request_ticker()
+    S.last_price = S.ticker['ticker']['last']
+    # initialize bots on first run
+    #if counter == 0:
     
+    for bot in S.bots:
+      bot.initialize()
+      
     counter = 0
     while (S.run):
       if (S.reload): 
         S.request_stuff()
         S.show_depth()
+        
       #print "  dmz width: %.4f\n" % S.dmz_width
       if S.use_ws:
         while not S.ws.connected:
@@ -588,42 +548,11 @@ class Traidor:
         print '\n\n\n\n\nplease consider donating to 1Ct1vCN6idU1hKrRcmR96G4NgAgrswPiCn\n\n\n(to remove donation msg, put "donated=1" into configfile, section [main])\n'
     if S.use_ws: S.ws.close()
 
-  def cmd(S, cmd):
-    if (cmd.rfind(';') >= 0):
-      for c in cmd.split(';'): S.cmd(c.strip())
-    else:
-      if cmd[:3] == 'dws': S.debug_ws = not S.debug_ws; print 'debug_ws=', S.debug_ws
-      if cmd[:2] == 'ps': pygame.mixer.Sound(cmd[3:]).play()
-      elif cmd[:3] == 'ws': S.use_ws = not S.use_ws; print 'use_ws=', S.use_ws
-      elif cmd[:2] == 'lb': 
-        i=0
-        for bot in S.bots: print "[%2i]: %s" % (i, bot.getName())
-      elif cmd[:2] == 'tb': # BriggerBot
-        S.addBot(TriggerBot(t, cmd[2:]))
-      elif cmd[0] == 'q': S.run = False
-      elif cmd[0] == 'h': S.show_help()
-      elif cmd[0] == 'b' or cmd[0] == 's': S.trade(cmd)
-      elif cmd[0] == 'c': S.cancel_order(cmd); S.request_orders(); S.show_orders()
-      elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth
-      elif cmd[0] == 'r': S.reload = True;
-      elif cmd[0] == 'o': S.show_orders()
-      elif cmd[0] == 'e': S.show_depth()
-      #elif cmd[0] == 't': 
-      #  for x in S.ticker: print x
-      #  print S.ticker
-      elif cmd[0] == 'd': S.display_height = int(cmd[1:])
-      elif cmd[0] == 'x': S.bot_test()
-      elif cmd[0] == 'p': 
-        p = int(cmd[1:])
-        try:
-          if p<2 or p>5: print 'precision must be 2..5'
-          else: PRICE_PREC = D(10) ** -p; S.reload = True
-        except: print 'exception parsing precision value: %s' % p
 
 pygame.init()
 t = Traidor()
 t.addBot(BeepBot(t))
-t.addBot(EquilibriumBot(t))
-t.cmd("tb >= 14.60 ps alarm.wav")
-t.cmd("tb <= 14.40 ps alarm2.wav")
+t.addBot(EquilibriumBot(t, D('0'), D('0')))
+#t.cmd("tb >= 14.80 ps alarm.wav")
+#t.cmd("tb <= 14.40 ps alarm2.wav")
 #t.mainloop()

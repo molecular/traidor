@@ -15,15 +15,18 @@ from ConfigParser import SafeConfigParser
 from pywsc.websocket import WebSocket
 import pygame
 
+
 from common import *
 from bot import *
+from img import *
 
+PRICE_PREC = D('0.00001')
 VOL_PREC = D('0.1')
 VOL2_PREC = D('0')
 MYVOL_PREC = D('0.01')
 
 def convert_certain_json_objects_to_decimal(dct):
-  for k in ('amount', 'price', 'btcs', 'usds'):
+  for k in ('amount', 'price', 'btcs', 'usds', 'volume'):
     if k in dct: dct[k] = D(dct[k])
   for k in ('asks', 'bids'):
     if k in dct: 
@@ -48,9 +51,14 @@ class Traidor:
     S.auto_update_depth = False
     S.auto_update_trade = True
 #    S.connection = httplib2.HTTPSConnectionWithTimeout("mtgox.com:443", strict=False, timeout=10)
-    S.display_height=10
+    S.display_height=15
     S.orders = {'btcs': -1, 'usds': -1}
     S.trades = []
+
+    S.do_img = False
+    if S.do_img:
+      S.img = Img(1280,720)
+      S.img.set_bar(0,0.3,0.1)
 
     # parse configfile
     parser = SafeConfigParser()
@@ -61,6 +69,7 @@ class Traidor:
     S.use_ws = parser.getboolean('main', 'use_websockets')
     S.debug_ws = parser.getboolean('main', 'debug_websockets')
     S.bots = list()
+
 
     t = Thread(target = S)
     t.start()
@@ -92,17 +101,10 @@ class Traidor:
     return S.orders['orders']
 
   def do_trade(S, type, vol, price):
-    key = raw_input("\n%s %s BTC for %s USD [y]es [n]o #> " % (type, vol, price))
-    if key[0] == 'y':
-      print 'TRADING'
-      result = S.request_json_authed('/code/' + type + 'BTC.php', params = {'amount': vol, 'price': price})
-      print '{%s}: %s' % (result['oid'], result['status'])
-      #S.request_orders()
-      S.orders['orders'] = result['orders']
-      return result['oid']
-    else:
-      print 'ABORTED'
-      return None
+    result = S.request_json_authed('/code/' + type + 'BTC.php', params = {'amount': vol, 'price': price})
+    print '{%s}: %s' % (result['oid'], result['status'])
+    S.orders['orders'] = result['orders']
+    return result['oid']
 
   def do_cancel_order(S, oid):
     print 'CANCELLING order {%s}' % oid
@@ -125,6 +127,7 @@ class Traidor:
       
   def onMessage(S, message):
     S.datalock.acquire()
+    #try:
     #print "-onMessage:", message
     update = False
     m = json.loads(message, use_decimal=True)
@@ -143,25 +146,28 @@ class Traidor:
       #s = '%s: [trade %s]: %5.1f for %.4f' % (trade['date'], trade['tid'], float(trade['amount']), float(trade['price']))
       depth_type = None
       type = 'unknown'
-      #if S.depth.has_key('bids'):
-      #  #print '\nchecking for key: %.04f' % float(trade['price'])
-      #  if S.depth['bids'].has_key("%.04f" % float(trade['price'])):
-      #    type = 'sell' 
-      #    depth_type = 'bids'
-      #  if S.depth['asks'].has_key("%.04f" % float(trade['price'])): 
-      #    type = 'buy' 
-      #    depth_type = 'asks'
-      #else: 
-      #  type = 'no depth data'
       
       #S.trades.append([trade['date'], trade['tid'], trade['amount'], trade['price'], type])
+      
+      #S.img.write("test/%s.png" % trade['date'])
+      
       trade = Trade(trade['date'], trade['amount'], trade['price'], trade['trade_type'])
       S.trades.append(trade)
       update = S.auto_update_trade
       
+      # bots 
+      S.datalock.release()
+      
+
+      S.request_orders()
+      
       S.last_price = trade.price
       for bot in S.bots:
         bot.trade(trade)
+
+      #S.request_orders()
+
+      S.datalock.acquire()
 
 
       # adjust depth data
@@ -173,37 +179,41 @@ class Traidor:
 
     # depth: {u'volume': 7.7060600456200001, u'price': 6.4884000000000004, u'type': 1}
     if op == 'private' and channel == '24e67e0d-1cad-4cc0-9e7a-f8523ef460fe': 
-      print m
+      #print m
       depth_msg = m['depth']
-      if S.auto_update_depth: print depth_msg
-      if depth_msg['type'] == 2: type = 'bids'
-      if depth_msg['type'] == 1: type = 'asks'
-      if depth_msg['type'] == 1: othertype = 'bids'
-      if depth_msg['type'] == 2: othertype = 'asks'
-      price = float("%.04f" % float(depth_msg['price']))
-      volume = float(depth_msg['volume']);
-      if S.auto_update_depth: print '\nDEPTH EVENT: type %s: key %s, volume %f' % (type, price, volume)
+      #if S.auto_update_depth: print depth_msg
+      type = depth_msg['type_str'] + 's'
+      #if typ: othertype = 'bids'
+      #if depth_msg['type'] == 2: othertype = 'asks'
+      price = D(depth_msg['price'])
+      volume = D(depth_msg['volume']);
+      #if S.auto_update_depth: 
+      #print '\nDEPTH EVENT: type %s: key %s, volume %s' % (type, price, volume)
       if not S.depth[type].has_key(price): 
-        if S.auto_update_depth: print 'DEPTH MANAGMENT: type %s: added key %s, volume %f' % (type, price, volume)
-        S.depth[type][price] = float(0)
-      #if S.depth[othertype].has_key(price):
-        #print 'DEPTH MANAGMENT: OTHERTYPE (%s) has_key(%s), trying to fix' % (othertype, price)
-        # #if not S.depth[type].has_key(price): S.depth[type][price] = float(0)
-        # #S.depth[type][price] += S.depth[type].pop(price)
-        #type = othertype
-      if S.auto_update_depth: print 'DEPTH MANAGMENT: type %s: %f -> %f' % (othertype, S.depth[type][price], S.depth[type][price] + volume)
+        #if S.auto_update_depth: 
+        #print 'DEPTH MANAGMENT: type %s: added key %s, volume %s' % (type, price, volume)
+        S.depth[type][price] = D('0')
+      #if S.auto_update_depth: print 'DEPTH MANAGMENT: type %s: %f -> %f' % (othertype, S.depth[type][price], S.depth[type][price] + volume)
       S.depth[type][price] += volume
-      if S.depth[type][price] < 1E-4: 
+      if S.depth[type][price] <= D('0'): 
         S.depth[type].pop(price)
-        if S.auto_update_depth: print 'DEPTH MANAGMENT: type %s: removed key %s' % (type, price)
+      #  if S.auto_update_depth: print 'DEPTH MANAGMENT: type %s: removed key %s' % (type, price)
       S.dmz_width = sorted(S.depth['asks'])[0] - sorted(S.depth['bids'], reverse=True)[0]
       update = S.auto_update_depth
+      
+      S.cmd('ps gligg.wav')
+      
+      if S.do_img: S.img_depth()
       #for x in sorted(S.depth[type]):
       #  print x, S.depth[type][x]
+    #except Exception:
+    #  print 'EXCEPTION, trying to continue...'
 
     S.datalock.release()
     if update:
       #S.request_stuff()
+      #S.request_orders()
+      #S.request_market()
       S.show_depth()
       S.prompt('mtgox')
         
@@ -268,7 +278,7 @@ class Traidor:
         if not S.depth[kind].has_key(price): S.depth[kind][price] = D(0)
         S.depth[kind][price] += o[1]
     S.datalock.release()
-      
+
   def request_orders(S):
     S.datalock.acquire()
     S.orders = S.request_json_authed('/code/getOrders.php')
@@ -286,20 +296,7 @@ class Traidor:
     S.last_price = S.trades[-1].price
     S.datalock.release()
     
-  def request_stuff(S):
-    #S.balance = S.request_json_authed('/code/getFunds.php')
-    #print S.balance;
-    #print 'orders';
-    S.request_orders()
-    #print 'ticker';
-    S.request_ticker()
-    #print 'trades2';
-    if not S.use_ws: S.request_trades()
-    #print 'market';
-    #print S.trades2;
-    S.request_market();
-    #print 'request_stuff() done'
-
+  # --- show_* ----------------------------------------------------------------------------------------
 
   def show_orders(S):
     S.datalock.acquire()
@@ -311,8 +308,8 @@ class Traidor:
     type = -1
     for o in sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True):
       #print "{%s}: %s %s" % (o['oid'], o['amount'], o['price'])
-      if abs(S.last_price - o['price']) < D('4'):
-        if o['type'] == 2 and type == 'ask': print "                                             |"
+      if abs(S.last_price - o['price']) < D('10'):
+        if o['type'] == 2 and type == 'ask' and len(S.orders['orders']) > 2: print "                                             |"
         type = o['type']
         if type==1: type = 'ask'
         elif type==2: type = 'bid'
@@ -320,6 +317,33 @@ class Traidor:
         print "[%3i] {%s} | %s %s %s - %i %s" % (i, o['oid'], type, dec(o['amount'], 4, 5), dec(o['price'], 3, 5), o['status'], o['real_status'])
       i += 1
     S.datalock.release()
+
+  def img_depth(S):
+    S.img.clear()
+    max_price = D('30.0')
+    for kind in ('bids', 'asks'):
+      if kind == 'bids': c, dir, end_x = 0xff3080ff, -1, 0
+      if kind == 'asks': c, dir, end_x = 0xff30ff00, 1, S.img.w
+      akku = D('0');
+      old_price = D('0')
+      old_x = -1
+      for price in sorted(S.depth[kind].keys(), reverse = (kind=='bids')):
+        akku += S.depth[kind][price]
+        if old_price != price:
+          x = S.img.w/2 + int((old_price - (max_price/2)) * 100)
+          h = int(akku / 100)
+          if x>=0 and x<=S.img.w:
+            #print('price %s: set_bar(%i, %i)' % (price, x, h))
+            if old_x < 0: old_x = x
+            for x2 in range(old_x, x, dir):
+              if h>0: S.img.set_bar(c, x2, S.img.h - h)
+          old_price = price
+          old_x = x
+      for x2 in range(old_x, end_x, dir):
+        if h>0: S.img.set_bar(c, x2, S.img.h - h)
+      
+    tm = time.localtime()
+    S.img.write('test/%s.png' % time.strftime('%Y%m%d-%H:%M:%S',tm))
 
   def show_depth(S):
     S.datalock.acquire()
@@ -380,7 +404,7 @@ class Traidor:
       #print i
       # str = "|  %s %9s for %s" % (time.strftime('%H:%M:%S',tm), t['amount'].quantize(VOL_PREC), t['price'].quantize(USD_PREC))
       tm = time.localtime(t.time)
-      str = "|  %s %9s for %s %s" % (time.strftime('%H:%M:%S',tm), dec(t.amount, 4, 2), dec(t.price, 3, 5), t.type)
+      str = "|  %s %s for %s %s" % (time.strftime('%H:%M:%S',tm), dec(t.amount, 4, 5), dec(t.price, 3, 5), t.type)
       s[i] += str
       i += 1
 
@@ -428,7 +452,15 @@ class Traidor:
       #price = S.market[m][index][0] + air
       
     # price = "%.4f" % price
-    S.do_trade(type, vol, price)
+    k = raw_input("\n%s %s BTC for %s USD [y]es [n]o #> " % (type, vol, price))
+    if k[0] == 'y':
+      result = S.do_trade(type, vol, price)
+      S.show_orders()
+      return result
+    else:
+      print 'ABORTED'
+      return None
+      
     S.show_orders()
     
   def cancel_order(S, key):
@@ -472,6 +504,7 @@ class Traidor:
     sys.stdout.flush()
 
   def cmd(S, cmd):
+    global PRICE_PREC
     if (cmd.rfind(';') >= 0):
       for c in cmd.split(';'): S.cmd(c.strip())
     else:
@@ -480,7 +513,9 @@ class Traidor:
       elif cmd[:3] == 'ws': S.use_ws = not S.use_ws; print 'use_ws=', S.use_ws
       elif cmd[:2] == 'lb': 
         i=0
-        for bot in S.bots: print "[%2i]: %s" % (i, bot.getName())
+        for bot in S.bots: 
+          print "[%2i]: %s" % (i, bot.getName())
+          i += 1
       elif cmd[:2] == 'tb': # BriggerBot
         S.addBot(TriggerBot(t, cmd[2:]))
       elif cmd[0] == 'q': S.run = False
@@ -510,11 +545,12 @@ class Traidor:
     # initial for bot, ned so wichtig auf dauer, kost zeit
     # abhilfe: unten bei initialize bots nen fake-trade reinschreiben
     # es geht glaub nur um S.last_trade? oder?
-    #S.request_trades()
+    S.request_trades()
 
     S.request_orders()
     S.request_ticker()
     S.last_price = S.ticker['ticker']['last']
+    S.request_market();
     # initialize bots on first run
     #if counter == 0:
     
@@ -523,9 +559,6 @@ class Traidor:
       
     counter = 0
     while (S.run):
-      if (S.reload): 
-        S.request_stuff()
-        S.show_depth()
         
       #print "  dmz width: %.4f\n" % S.dmz_width
       if S.use_ws:
@@ -536,6 +569,13 @@ class Traidor:
           except:
             print 'connection problem, retrying later...'
             time.sleep(1);
+            
+      if (S.reload): 
+        #S.request_orders()
+        S.request_ticker()
+        if not S.use_ws: S.request_trades()
+        S.show_depth()
+        #S.show_orders()
         
       #S.print_stuff();
       S.reload = False;
@@ -552,7 +592,8 @@ class Traidor:
 pygame.init()
 t = Traidor()
 t.addBot(BeepBot(t))
-t.addBot(EquilibriumBot(t, D('0'), D('0')))
+
+#t.addBot(EquilibriumBot(t, D('0.0'), D('0'), D('3.0'), D('0.2'))) # btc add, usd add, fund_multiplier, desired_amount
 #t.cmd("tb >= 14.80 ps alarm.wav")
 #t.cmd("tb <= 14.40 ps alarm2.wav")
 #t.mainloop()

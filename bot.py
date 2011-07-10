@@ -53,22 +53,35 @@ class TriggerBot(Bot):
     return "TriggerBot(%s %s %s)" % (S.compare, S.price, S.cmd)
     
 class EquilibriumBot(Bot):
-  def __init__(S, exchange, fake_btc, fake_usd):
+  def __init__(S, exchange, fake_btc, fake_usd, funds_multiplier, desired_amount):
     Bot.__init__(S, exchange)
-    S.fake_btc, S.fake_usd = fake_btc, fake_usd
+    S.fake_btc, S.fake_usd, S.funds_multiplier = fake_btc, fake_usd, funds_multiplier
+    S.oid = {'buy': None, 'sell': None}
+    S.desired_amount = desired_amount
+    S.initial_usd, S.initial_btc = None, None
     
   def initialize(S):
     S.exchange.do_cancel_all_orders()
+    S.do()
+
+  def get_performance(S):
+    ex = S.exchange
+    if S.initial_usd == None:
+      S.initial_btc = ex.getBTC()
+      S.initial_usd = ex.getUSD()
+    return (ex.getUSD() + ((ex.getBTC() - S.initial_btc) * ex.last_price)) - S.initial_usd
 
   def trade(S, trade):
+    S.do()
+  
+  def do(S):
     ex = S.exchange
 
-    desired_amount = D('2.0')
-    
     # remove all orders I don't know about
     #for o in ex.get_orders():
     #  if o['oid'] not in (S.order['buy'], S.order['sell']):
-        
+    
+    #ex.request_orders() deadlock?
     
     # find my trades
     my_highest_bid = D(0);
@@ -96,7 +109,7 @@ class EquilibriumBot(Bot):
     
     # calc some stuff
     P = D(10) ** -8
-    (btc, usd) = (ex.getBTC() + S.fake_btc, ex.getUSD() + S.fake_usd)
+    (btc, usd) = ( (ex.getBTC() + S.fake_btc) * S.funds_multiplier, (ex.getUSD() + S.fake_usd) * S.funds_multiplier )
     my_ratio = (usd / btc).quantize(P)
     
     def d(x): return dec(x, 5, 5)
@@ -107,25 +120,67 @@ class EquilibriumBot(Bot):
     delta_usd = desired_usd - usd
     # trade sim
     delta_btc = -delta_usd / new_rate
-    print "rate %s:\ncurrent %s BTC | %s USD | ratio %s \ndesire  %s USD | %s BTC -> \ndelta   %s USD | %s BTC" % (d(new_rate), d(btc), d(usd), d(my_ratio), d(desired_usd), d(desired_btc), d(delta_usd), d(delta_btc))
+    print "rate %s:\ncurrent %s BTC | %s USD | ratio %s \ndesire  %s BTC | %s USD -> \ndelta   %s BTC | %s USD" % (d(new_rate), d(btc), d(usd), d(my_ratio), d(desired_btc), d(desired_usd), d(delta_btc), d(delta_usd))
 
-    if abs(delta_btc) > desired_amount:
-      print 'delta_btc (%s) is > desired_amount (%s), refusing to trade bring me to equlibrium first.' % (delta_btc, desired_amount)
+    amount_mult = D('10')
+    if abs(delta_btc) > S.desired_amount * amount_mult:
+      print 'delta_btc (%s) is > %s * desired_amount (%s), refusing to trade bring me to equlibrium first by %s at least %s BTC.' % (delta_btc, amount_mult, S.desired_amount, ('selling' if delta_btc<D('0') else 'buying'), ((abs(delta_btc) - S.desired_amount) / S.funds_multiplier).quantize(D('1.0')))
+      ex.removeBot(S)  
     else:
-      buy_rate = usd / (btc + 2 * desired_amount)
-      sell_rate = usd / (btc - 2 * desired_amount)
+      rate = {}
+      amount = {}
+      increment = D('0.01')
+      max_amount = D('1.0')
+      min_distance = D('0.0')
+      
+      amount['buy'] = S.desired_amount
+      rate['buy'] = ex.last_price
+      while (ex.last_price - rate['buy']) <= min_distance and amount['buy'] <= max_amount:
+        rate['buy'] = usd / (btc + 2 * amount['buy'])
+        amount['buy'] += increment
+        
+      amount['sell'] = S.desired_amount
+      rate['sell'] = ex.last_price
+      while (rate['sell'] - ex.last_price) <= min_distance and amount['sell'] <= max_amount:
+        rate['sell'] = usd / (btc - 2 * amount['sell'])
+        amount['sell'] += increment
 
-      buy_rate = buy_rate.quantize(BTC_PREC)
-      sell_rate = sell_rate.quantize(BTC_PREC)
+      rate['buy'] = rate['buy'].quantize(BTC_PREC)
+      rate['sell'] = rate['sell'].quantize(BTC_PREC)
 
-      print ' to buy %s BTC, I want rate %s' % (desired_amount, buy_rate)
-      print 'to sell %s BTC, I want rate %s' % (desired_amount, sell_rate)
+      print ' to buy %s BTC, I want rate %s' % (amount['buy'], rate['buy'])
+      print 'to sell %s BTC, I want rate %s' % (amount['sell'], rate['sell'])
       
       # check orders
-      #if S.orders['buy'] == None:
+      count_exist = 0
+      for type in ('buy', 'sell'):
+        if S.oid[type] != None or ex.get_order(S.oid[type]) != None: count_exist += 1
+
+      print 'count_exist: ', count_exist
+      if count_exist != 2:
+        ex.cmd('ps alarm.wav')
+        ex.do_cancel_all_orders()
+
+      for type in ('buy', 'sell'):
+        if S.oid[type] == None or ex.get_order(S.oid[type]) == None:
+          if \
+          (type == 'buy' and rate[type] < ex.last_price) or \
+          (type == 'sell' and rate[type] > ex.last_price):
+            print 'PLACING new order: %s %s %s' % (type, amount[type], rate[type])
+            S.oid[type] = ex.do_trade(type, amount[type], rate[type])
         
-      
-    
+      # check price, if wrong, change order
+      for type in ('buy', 'sell'):
+        o = ex.get_order(S.oid[type])
+        if o != None and abs(o['price'] - rate[type]) > D('0.0001'):
+          ex.cmd('ps alarm2.wav')
+          print 'CANCELLING order {%s}' % S.oid[type]
+          ex.do_cancel_order(S.oid[type])
+          print 'PLACING new order: %s %s %s' % (type, amount[type], rate[type])
+          S.oid[type] = ex.do_trade(type, amount[type], rate[type])
+
+    print 'performance: %s' % S.get_performance()
+
     '''    # daloop
     for kind in ('bids', 'asks'):
       orders = sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse = (kind=='bids'))
@@ -172,4 +227,4 @@ class EquilibriumBot(Bot):
     '''    
 
   def getName(S):
-    return "EquilibriumBot()"
+    return "EquilibriumBot(performance: %s)" % (S.get_performance().quantize(D('0.001')))

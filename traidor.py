@@ -18,7 +18,7 @@ import pygame
 
 from common import *
 from bot import *
-from img import *
+#from img import *
 
 PRICE_PREC = D('0.00001')
 VOL_PREC = D('0.1')
@@ -75,7 +75,7 @@ class Traidor:
     t.start()
 
     if S.use_ws:
-      S.ws = WebSocket('ws://websocket.mtgox.com:80/mtgox')
+      S.ws = WebSocket('wss://websocket.mtgox.com:443/mtgox')
       S.ws.setEventHandlers(S.onOpen, S.onMessage, S.onClose)  
 
   # --- bot handling ---------------------------------------------------------------------------------------------------------

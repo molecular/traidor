@@ -7,7 +7,7 @@ __all__ = ["Bot", "BeepBot", "TriggerBot", "EquilibriumBot"]
 
 class Bot:
   def __init__(S, exchange):
-    S.exchange = exchange
+    S.x = exchange
     
   def getName(S):
     return 'generic Bot'
@@ -26,7 +26,7 @@ class BeepBot(Bot):
     return 'BeepBot'
     
   def trade(S, trade):
-    S.exchange.cmd('ps click.wav')
+    S.x.cmd('ps click.wav')
     pass
     
 class TriggerBot(Bot):
@@ -46,8 +46,8 @@ class TriggerBot(Bot):
     (S.compare == "<" and trade.price < S.price) or \
     (S.compare == "<=" and trade.price <= S.price):
       print '\nTRIGGER BOT %s TRIGGER %s\n' % (S.getName(), S.price)
-      S.exchange.cmd(S.cmd)
-      S.exchange.removeBot(S)
+      S.x.cmd(S.cmd)
+      S.x.removeBot(S)
 
   def getName(S):
     return "TriggerBot(%s %s %s)" % (S.compare, S.price, S.cmd)
@@ -61,11 +61,11 @@ class EquilibriumBot(Bot):
     S.initial_usd, S.initial_btc = None, None
     
   def initialize(S):
-    S.exchange.do_cancel_all_orders()
+    S.x.do_cancel_all_orders()
     S.do()
 
   def get_performance(S):
-    ex = S.exchange
+    ex = S.x
     if S.initial_usd == None:
       S.initial_btc = ex.getBTC()
       S.initial_usd = ex.getUSD()
@@ -75,7 +75,7 @@ class EquilibriumBot(Bot):
     S.do()
   
   def do(S):
-    ex = S.exchange
+    ex = S.x
 
     # remove all orders I don't know about
     #for o in ex.get_orders():

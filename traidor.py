@@ -15,9 +15,9 @@ from ConfigParser import SafeConfigParser
 from pywsc.websocket import WebSocket
 import pygame
 
-
 from common import *
 from bot import *
+from wxgui import *
 #from img import *
 
 PRICE_PREC = D('0.00001')
@@ -34,8 +34,6 @@ def convert_certain_json_objects_to_decimal(dct):
         for i in (0,1): 
           dct[k][idx][i] = D(dct[k][idx][i]) 
   return dct
-
-
 
 class Trade:
   def __init__(S, time, amount, price, type):
@@ -75,7 +73,7 @@ class Traidor:
     t.start()
 
     if S.use_ws:
-      S.ws = WebSocket('wss://websocket.mtgox.com:443/mtgox')
+      S.ws = WebSocket('ws://websocket.mtgox.com:80/mtgox')
       S.ws.setEventHandlers(S.onOpen, S.onMessage, S.onClose)  
 
   # --- bot handling ---------------------------------------------------------------------------------------------------------
@@ -522,7 +520,7 @@ class Traidor:
       elif cmd[0] == 'h': S.show_help()
       elif cmd[0] == 'b' or cmd[0] == 's': S.trade(cmd)
       elif cmd[0] == 'c': S.cancel_order(cmd); S.show_orders()
-      elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth
+      elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth; print 'auto_update_depth = ', S.auto_update_depth
       elif cmd[0] == 'r': S.reload = True;
       elif cmd[0] == 'o': S.request_orders(); S.show_orders()
       elif cmd[0] == 'e': S.show_depth()
@@ -545,14 +543,12 @@ class Traidor:
     # initial for bot, ned so wichtig auf dauer, kost zeit
     # abhilfe: unten bei initialize bots nen fake-trade reinschreiben
     # es geht glaub nur um S.last_trade? oder?
-    S.request_trades()
+    #S.request_trades()
 
     S.request_orders()
     S.request_ticker()
     S.last_price = S.ticker['ticker']['last']
     S.request_market();
-    # initialize bots on first run
-    #if counter == 0:
     
     for bot in S.bots:
       bot.initialize()
@@ -575,6 +571,8 @@ class Traidor:
         S.request_ticker()
         if not S.use_ws: S.request_trades()
         S.show_depth()
+        S.request_market()
+        # load BTC/USD somewhere in above calls!
         #S.show_orders()
         
       #S.print_stuff();
@@ -589,8 +587,10 @@ class Traidor:
     if S.use_ws: S.ws.close()
 
 
+
 pygame.init()
 t = Traidor()
+#t.addBot(TraidorApp(t))
 t.addBot(BeepBot(t))
 
 #t.addBot(EquilibriumBot(t, D('0.0'), D('0'), D('3.0'), D('0.2'))) # btc add, usd add, fund_multiplier, desired_amount

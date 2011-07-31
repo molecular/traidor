@@ -1,6 +1,7 @@
 [main]
-use_websockets=false
+use_websockets=true
 debug_websockets=false
+donated=false
 
 [mtgox]
 account_name: change_to_your_mtgox_account_name

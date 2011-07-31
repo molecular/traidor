@@ -179,33 +179,32 @@ class Traidor:
     if op == 'private' and channel == '24e67e0d-1cad-4cc0-9e7a-f8523ef460fe': 
       #print m
       depth_msg = m['depth']
-      #if S.auto_update_depth: print depth_msg
-      type = depth_msg['type_str'] + 's'
-      #if typ: othertype = 'bids'
-      #if depth_msg['type'] == 2: othertype = 'asks'
-      price = D(depth_msg['price'])
-      volume = D(depth_msg['volume']);
-      #if S.auto_update_depth: 
-      #print '\nDEPTH EVENT: type %s: key %s, volume %s' % (type, price, volume)
-      if not S.depth[type].has_key(price): 
+      if depth_msg['currency'] == 'USD':
+        #if S.auto_update_depth: print depth_msg
+        type = depth_msg['type_str'] + 's'
+        #if typ: othertype = 'bids'
+        #if depth_msg['type'] == 2: othertype = 'asks'
+        price = D(depth_msg['price'])
+        volume = D(depth_msg['volume']);
         #if S.auto_update_depth: 
-        #print 'DEPTH MANAGMENT: type %s: added key %s, volume %s' % (type, price, volume)
-        S.depth[type][price] = D('0')
-      #if S.auto_update_depth: print 'DEPTH MANAGMENT: type %s: %f -> %f' % (othertype, S.depth[type][price], S.depth[type][price] + volume)
-      S.depth[type][price] += volume
-      if S.depth[type][price] <= D('0'): 
-        S.depth[type].pop(price)
-      #  if S.auto_update_depth: print 'DEPTH MANAGMENT: type %s: removed key %s' % (type, price)
-      S.dmz_width = sorted(S.depth['asks'])[0] - sorted(S.depth['bids'], reverse=True)[0]
-      update = S.auto_update_depth
-      
-      S.cmd('ps gligg.wav')
-      
-      if S.do_img: S.img_depth()
-      #for x in sorted(S.depth[type]):
-      #  print x, S.depth[type][x]
-    #except Exception:
-    #  print 'EXCEPTION, trying to continue...'
+        #print '\nDEPTH EVENT: type %s: key %s, volume %s' % (type, price, volume)
+        if not S.depth[type].has_key(price): 
+          #if S.auto_update_depth: 
+          #print 'DEPTH MANAGMENT: type %s: added key %s, volume %s' % (type, price, volume)
+          S.depth[type][price] = D('0')
+        #if S.auto_update_depth: print 'DEPTH MANAGMENT: type %s: %f -> %f' % (othertype, S.depth[type][price], S.depth[type][price] + volume)
+        S.depth[type][price] += volume
+        if S.depth[type][price] <= D('0'): 
+          S.depth[type].pop(price)
+        #  if S.auto_update_depth: print 'DEPTH MANAGMENT: type %s: removed key %s' % (type, price)
+        S.dmz_width = sorted(S.depth['asks'])[0] - sorted(S.depth['bids'], reverse=True)[0]
+        update = S.auto_update_depth
+        
+        S.cmd('ps gligg.wav')
+        
+        if S.do_img: S.img_depth()
+        #for x in sorted(S.depth[type]):
+        #  print x, S.depth[type][x]
 
     S.datalock.release()
     if update:

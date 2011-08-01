@@ -26,6 +26,11 @@
         raise URLError(err)
     URLError: <urlopen error [Errno 104] Connection reset by peer>
     
-  * show_depth() is very slow. ("p 2" makes it faster, so probably sorting issues on depth table). this makes auto_update_depth=True a bad idea
-  * 
+  * show_depth() is very slow. 
+    ("p 2" makes it faster, so probably sorting issues on depth table). this makes auto_update_depth=True a bad idea
+    hmm, fiddled with sorting, no luck. don't know exactly what's slow. tried the locks, actual print,... no idea
+    -> maybe go another route and make some update thread and dont call show_depth() from websocket callback
+    
+  * use readline for command entry?
+  
   

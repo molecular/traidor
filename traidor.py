@@ -497,6 +497,7 @@ class Traidor:
     p <1..5>              set display precision\n\
     ps <file.wav>         play sound from wav\n\
     lb                    list active bots\n\
+    wx | gui              start gui\n\
     q                     quit\n\
 "
   def getPrompt(S, infoline):
@@ -525,6 +526,10 @@ class Traidor:
           i += 1
       elif cmd[:2] == 'tb': # TriggerBot
         S.addBot(TriggerBot(t, cmd[2:]))
+      elif cmd[:2] == 'wx' or cmd[:3] == 'gui':
+        wx = TraidorApp(t)
+        S.addBot(wx)
+        wx.initialize()
       elif cmd[0] == 'q': S.run = False
       elif cmd[0] == 'h': S.show_help()
       elif cmd[0] == 'b' or cmd[0] == 's': S.trade(cmd)
@@ -605,7 +610,6 @@ class Traidor:
 
 pygame.init()
 t = Traidor()
-#t.addBot(TraidorApp(t))
 t.addBot(BeepBot(t))
 
 #t.addBot(EquilibriumBot(t, D('0.0'), D('0'), D('3.0'), D('0.2'))) # btc add, usd add, fund_multiplier, desired_amount

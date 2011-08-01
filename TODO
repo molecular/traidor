@@ -1,0 +1,26 @@
+ * handle disconnects
+       Traceback (most recent call last):
+      File "/usr/lib/python2.6/threading.py", line 532, in __bootstrap_inner
+        self.run()
+      File "/mnt/nick/nix/data/bitcoin/bin/traidor/pywsc/receiver.py", line 41, in run
+      File "traidor.py", line 161, in onMessage
+        S.request_orders()
+      File "traidor.py", line 282, in request_orders
+        S.orders = S.request_json_authed('/code/getOrders.php')
+      File "traidor.py", line 258, in request_json_authed
+        return S.request_json(url, params)
+      File "traidor.py", line 250, in request_json
+        response = urllib2.urlopen(req)
+      File "/usr/lib/python2.6/urllib2.py", line 126, in urlopen
+        return _opener.open(url, data, timeout)
+      File "/usr/lib/python2.6/urllib2.py", line 391, in open
+        response = self._open(req, data)
+      File "/usr/lib/python2.6/urllib2.py", line 409, in _open
+        '_open', req)
+      File "/usr/lib/python2.6/urllib2.py", line 369, in _call_chain
+        result = func(*args)
+      File "/usr/lib/python2.6/urllib2.py", line 1178, in https_open
+        return self.do_open(httplib.HTTPSConnection, req)
+      File "/usr/lib/python2.6/urllib2.py", line 1145, in do_open
+        raise URLError(err)
+    URLError: <urlopen error [Errno 104] Connection reset by peer>

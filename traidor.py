@@ -67,6 +67,7 @@ class Traidor:
     S.donated = parser.getboolean('main', 'donated')
     S.use_ws = parser.getboolean('main', 'use_websockets')
     S.debug_ws = parser.getboolean('main', 'debug_websockets')
+    S.debug = parser.getboolean('main', 'debug')
     S.bots = list()
 
 
@@ -553,13 +554,18 @@ class Traidor:
     # es geht glaub nur um S.last_trade? oder?
     #S.request_trades()
 
+    if S.debug: print 'request_orders()'
     S.request_orders()
+    if S.debug: print 'request_ticker()'
     S.request_ticker()
     S.last_price = S.ticker['ticker']['last']
+    if S.debug: print 'request_market()'
     S.request_market();
     
+    if S.debug: print 'initializing bots...'
     for bot in S.bots:
       bot.initialize()
+    if S.debug: print 'ready'
       
     counter = 0
     while (S.run):
@@ -567,9 +573,10 @@ class Traidor:
       #print "  dmz width: %.4f\n" % S.dmz_width
       if S.use_ws:
         while not S.ws.connected:
+          if S.debug: print 'connecting websocket...'
           try:
             S.ws.connect();
-            if debug_ws: say("websocket connected")    
+            if S.debug: print 'websocket connected'
           except:
             print 'connection problem, retrying later...'
             time.sleep(1);

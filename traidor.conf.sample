@@ -2,6 +2,7 @@
 use_websockets=true
 debug_websockets=false
 donated=false
+debug=true
 
 [mtgox]
 account_name: change_to_your_mtgox_account_name

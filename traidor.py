@@ -486,14 +486,16 @@ class Traidor:
     r                     S.reload - S.reload public order book and trades\n\
     b <amount> <price>    enter order to buy <amount> btc at <price>\n\
     s <amount> <price>    enter order to sell <amount> btc at <price>\n\
-    b <amount> i<IDX>     enter order to buy <amount> btc, price looked up from orderbook at index <IDX>\n\
-    s <amount> i<IDX>     enter order to sell <amount> btc, price looked up from orderbook at index <IDX>\n\
+    b <amount> i<index>     enter order to buy <amount> btc, price looked up from orderbook at <index>\n\
+    s <amount> i<index>     enter order to sell <amount> btc, price looked up from orderbook at <index>\n\
     o                     view your order book\n\
-    d <index>             delete order at <index> from orderbook\n\
+    c <index> <index> ... cancel order at <index> from orderbook (list of <index>s possible)\n\
     d <lines>             set height of depth display\n\
     ws                    toggle websockets updates\n\
     dws                   toggle websocket debugging output\n\
     p <1..5>              set display precision\n\
+    ps <file.wav>         play sound from wav\n\
+    lb                    list active bots\n\
     q                     quit\n\
 "
   def getPrompt(S, infoline):
@@ -520,7 +522,7 @@ class Traidor:
         for bot in S.bots: 
           print "[%2i]: %s" % (i, bot.getName())
           i += 1
-      elif cmd[:2] == 'tb': # BriggerBot
+      elif cmd[:2] == 'tb': # TriggerBot
         S.addBot(TriggerBot(t, cmd[2:]))
       elif cmd[0] == 'q': S.run = False
       elif cmd[0] == 'h': S.show_help()

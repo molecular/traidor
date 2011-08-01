@@ -1,4 +1,5 @@
- * handle disconnects
+
+  * handle disconnects / connection resets / ..., example:
        Traceback (most recent call last):
       File "/usr/lib/python2.6/threading.py", line 532, in __bootstrap_inner
         self.run()
@@ -24,3 +25,7 @@
       File "/usr/lib/python2.6/urllib2.py", line 1145, in do_open
         raise URLError(err)
     URLError: <urlopen error [Errno 104] Connection reset by peer>
+    
+  * show_depth() is very slow. ("p 2" makes it faster, so probably sorting issues on depth table). this makes auto_update_depth=True a bad idea
+  * 
+  

@@ -45,6 +45,7 @@ class Trade:
 class Traidor:
   def __init__(S):
     S.datalock = Lock()
+    S.displaylock = Lock()
     S.order_distance = D('0.0001')
     S.auto_update_depth = False
     S.auto_update_trade = True
@@ -184,7 +185,7 @@ class Traidor:
         type = depth_msg['type_str'] + 's'
         #if typ: othertype = 'bids'
         #if depth_msg['type'] == 2: othertype = 'asks'
-        price = D(depth_msg['price'])
+        price = D(depth_msg['price']).quantize(PRICE_PREC)
         volume = D(depth_msg['volume']);
         #if S.auto_update_depth: 
         #print '\nDEPTH EVENT: type %s: key %s, volume %s' % (type, price, volume)
@@ -297,6 +298,7 @@ class Traidor:
 
   def show_orders(S):
     S.datalock.acquire()
+    S.displaylock.acquire()
     #print S.orders
     print "\n"
     i = 0
@@ -313,6 +315,7 @@ class Traidor:
         else: type = 'unknown'
         print "[%3i] {%s} | %s %s %s - %i %s" % (i, o['oid'], type, dec(o['amount'], 4, 5), dec(o['price'], 3, 5), o['status'], o['real_status'])
       i += 1
+    S.displaylock.release()
     S.datalock.release()
 
   def img_depth(S):
@@ -344,6 +347,7 @@ class Traidor:
 
   def show_depth(S):
     S.datalock.acquire()
+    S.displaylock.acquire()
     s = []
     my_orders = S.orders['orders']
     for kind in ('bids', 'asks'):
@@ -413,7 +417,8 @@ class Traidor:
     #  str = "|  %s %9s for %s" % (time.strftime('%H:%M:%S',tm), t['amount'].quantize(VOL_PREC), t['price'].quantize(USD_PREC))
     #  s[i] += str
     #  i += 1
-    
+
+    S.displaylock.release()
     S.datalock.release()
 
     print '\n       ------ BUYING BITCOIN ------ | ------- SELLING BITCOIN ------ | ----------- TRADES ------------'

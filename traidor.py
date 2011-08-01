@@ -130,7 +130,6 @@ class Traidor:
     if S.debug_ws: print "websocket open"
       
   def onMessage(S, message):
-    S.datalock.acquire()
     #try:
     #print "-onMessage:", message
     update = False
@@ -143,6 +142,8 @@ class Traidor:
 #    if channel == 'd5f06780-30a8-4a48-a2f8-7ed181b4a13f': # ticker
 #      S.prompt('tick')
 
+    S.datalock.acquire()
+    
     # trades
     if op == 'private' and channel == 'dbf1dee9-4f2e-4a08-8cb7-748919a71b21': 
       trade = m['trade']
@@ -193,6 +194,7 @@ class Traidor:
         if S.do_img: S.img_depth()
 
     S.datalock.release()
+    
     if update:
       S.show_depth()
       S.prompt()
@@ -337,9 +339,8 @@ class Traidor:
       time.sleep(0.17)
       age = time.time() - S.last_depth_update
       if S.auto_update_depth:
-        #print 'show_depth_run(): age=', age
         # once enough time passed since last depth update msg (burst ceased) or a lot of update messages queued up, call show_depth()
-        if (age >= 1.0 and S.depth_invalid_counter > 0) or S.depth_invalid_counter > 37:  
+        if (age >= 0.71 and S.depth_invalid_counter > 0) or S.depth_invalid_counter > 37:  
           #print 'show_depth_run(): calling show_depth()'
           S.show_depth()
           S.prompt()    

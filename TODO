@@ -28,4 +28,6 @@
     
   * use readline for command entry?
   
+  * theres supposed to be a private websocket channel that informs when orders get filled. use it.
+  
   

@@ -46,7 +46,7 @@ class Traidor:
   def __init__(S):
     S.datalock = Lock()
     S.displaylock = Lock()
-    S.order_distance = D('0.0001')
+    S.order_distance = D('0.00001')
     S.auto_update_depth = False
     S.auto_update_trade = True
 #    S.connection = httplib2.HTTPSConnectionWithTimeout("mtgox.com:443", strict=False, timeout=10)
@@ -441,11 +441,11 @@ class Traidor:
     if len(p) >= 3: price_str = p[2]
     price = -1.0
     #print 'price_str ', price_str
-    if price_str.find('.') >= 0:
+    if price_str[0] != 'i' >= 0:
       price = float(price_str)
     else:
-      if price_str == '': index = 0
-      else: index = int(price_str)
+      if price_str == 'i': index = 0
+      else: index = int(price_str[1:])
       if m == 'bids': index = -index - 1
       #print 'index: ', index, ' market: ', S.market[m][index]
       price = sorted(S.depth[m].keys())[index] + air
@@ -486,6 +486,8 @@ class Traidor:
     r                     S.reload - S.reload public order book and trades\n\
     b <amount> <price>    enter order to buy <amount> btc at <price>\n\
     s <amount> <price>    enter order to sell <amount> btc at <price>\n\
+    b <amount> i<IDX>     enter order to buy <amount> btc, price looked up from orderbook at index <IDX>\n\
+    s <amount> i<IDX>     enter order to sell <amount> btc, price looked up from orderbook at index <IDX>\n\
     o                     view your order book\n\
     d <index>             delete order at <index> from orderbook\n\
     d <lines>             set height of depth display\n\

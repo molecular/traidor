@@ -185,6 +185,7 @@ class Traidor:
         S.depth_invalid_counter += 1
 
         S.cmd('ps gligg.wav')
+        time.sleep(0.05)
         
         if S.do_img: S.img_depth()
 

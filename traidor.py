@@ -499,7 +499,7 @@ class Traidor:
       for c in cmd.split(';'): S.cmd(c.strip())
     else:
       if cmd[:3] == 'dws': S.debug_ws = not S.debug_ws; print 'debug_ws=', S.debug_ws
-      if cmd[:2] == 'ps': pygame.mixer.Sound(cmd[3:]).play()
+      if cmd[:2] == 'ps': True #pygame.mixer.Sound(cmd[3:]).play()
       elif cmd[:3] == 'ws': S.use_ws = not S.use_ws; print 'use_ws=', S.use_ws
       elif cmd[:2] == 'lb': 
         i=0

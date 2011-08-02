@@ -344,7 +344,6 @@ class Traidor:
   # display depth data
   def show_depth(S):
     S.datalock.acquire()
-    S.displaylock.acquire()
     s = []
     my_orders = S.orders['orders']
     for kind in ('bids', 'asks'):
@@ -400,15 +399,16 @@ class Traidor:
 
     S.depth_invalid_counter = 0
 
-    S.displaylock.release()
     S.datalock.release()
-
+    
+    S.displaylock.acquire()
     print '\n\n       ------ BUYING BITCOIN ------ | ------- SELLING BITCOIN ------ | ----------- TRADES ------------'
     print '                                                                     |'
     print '[IDX]   YOU   bid        vol   accumulated      vol   ask       YOU  |  time        amount       price'
     print '                                                                     |'
     for str in s[-S.display_height:]:
       print str
+    S.displaylock.release()
         
   # --- actions -------------------------------------------------------------------------------------------------------
 
@@ -588,7 +588,12 @@ class Traidor:
       counter += 1
       if (counter % 31) == 13 and not S.donated:
         print '\n\n\n\n\nplease consider donating to 1Ct1vCN6idU1hKrRcmR96G4NgAgrswPiCn\n\n\n(to remove donation msg, put "donated=1" into configfile, section [main])\n'
-    if S.use_ws: S.ws.close()
+        
+    if S.use_ws: 
+      try:
+        S.ws.close()
+      except:
+        if S.debug: print 'websocket closing failed'
 
 pygame.init()
 t = Traidor()

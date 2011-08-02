@@ -160,7 +160,7 @@ class Traidor:
       
       # bots 
       S.datalock.release()
-      S.request_orders() # hmmmgrl, really? why is this so extremely fast to call?
+      #S.request_orders() # hmmmgrl, really? 
       S.last_price = trade.price
       for bot in S.bots:
         bot.trade(trade)
@@ -463,12 +463,13 @@ class Traidor:
   def show_help(S):
     print "\n\
     h                     this help\n\
+    a                     toggle auto_update on/off\n\
     <ret>                 show public order book, recent trades and your order book\n\
     r                     S.reload - S.reload public order book and trades\n\
     b <amount> <price>    enter order to buy <amount> btc at <price>\n\
     s <amount> <price>    enter order to sell <amount> btc at <price>\n\
-    b <amount> i<index>     enter order to buy <amount> btc, price looked up from orderbook at <index>\n\
-    s <amount> i<index>     enter order to sell <amount> btc, price looked up from orderbook at <index>\n\
+    b <amount> i<index>   enter order to buy <amount> btc, price looked up from orderbook at <index>\n\
+    s <amount> i<index>   enter order to sell <amount> btc, price looked up from orderbook at <index>\n\
     o                     view your order book\n\
     c <index> <index> ... cancel order at <index> from orderbook (list of <index>s possible)\n\
     d <lines>             set height of depth display\n\

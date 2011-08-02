@@ -12,7 +12,7 @@ import subprocess
 from threading import *
 from ConfigParser import SafeConfigParser
 from pywsc.websocket import WebSocket
-import pygame
+#import pygame
 
 from common import *
 from bot import *
@@ -595,9 +595,9 @@ class Traidor:
       except:
         if S.debug: print 'websocket closing failed'
 
-pygame.init()
+#pygame.init()
 t = Traidor()
-t.addBot(BeepBot(t))
+#t.addBot(BeepBot(t))
 
 #t.addBot(EquilibriumBot(t, D('0.0'), D('0'), D('3.0'), D('0.2'))) # btc add, usd add, fund_multiplier, desired_amount
 #t.cmd("tb >= 14.80 ps alarm.wav")

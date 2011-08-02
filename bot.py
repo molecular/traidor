@@ -1,5 +1,5 @@
 #from traidor import Traidor
-import pygame
+#import pygame
 from common import *
 from decimal import Decimal as D
 

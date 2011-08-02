@@ -7,7 +7,6 @@
 import simplejson as json
 import urllib, urllib2 #, httplib2
 import sys, os
-import curses
 import time
 import subprocess
 from threading import *
@@ -153,7 +152,6 @@ class Traidor:
       type = 'unknown'
       
       #S.trades.append([trade['date'], trade['tid'], trade['amount'], trade['price'], type])
-      
       #S.img.write("test/%s.png" % trade['date'])
       
       trade = Trade(trade['date'], trade['amount'], trade['price'], trade['trade_type'])
@@ -162,13 +160,10 @@ class Traidor:
       
       # bots 
       S.datalock.release()
-
-      S.request_orders()
-      
+      S.request_orders() # hmmmgrl, really? why is this so extremely fast to call?
       S.last_price = trade.price
       for bot in S.bots:
         bot.trade(trade)
-
       S.datalock.acquire()
 
     # depth: {u'volume': 7.7060600456200001, u'price': 6.4884000000000004, u'type': 1}
@@ -377,10 +372,7 @@ class Traidor:
       # asks
       if (kind=='asks'):
         s_i = len(s) - 1
-        #i = len(S.depth[kind]) - 1
-        #print 'i: ', i, ', s_i: ', s_i
         for price in sorted(S.depth[kind].keys())[:S.display_height]:
-          #i -= 1
           vol = S.depth[kind][price]
           akku += vol
           str = "%-5s %s %s" % (akku.quantize(VOL2_PREC), dec(vol, 4, 1), dec(price, 3, 5))
@@ -421,7 +413,6 @@ class Traidor:
 
   def trade(S, key):
     p = key.split(' ')
-    #print p
     type = 'unknown'
     if p[0][0] == 'b': type = 'buy'; m = 'bids'; air = S.order_distance
     if p[0][0] == 's': type = 'sell'; m = 'asks'; air = -S.order_distance

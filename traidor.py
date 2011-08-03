@@ -606,10 +606,10 @@ class Traidor:
         print '\n\n\n\n\nplease consider donating to 1Ct1vCN6idU1hKrRcmR96G4NgAgrswPiCn\n\n\n(to remove donation msg, put "donated=1" into configfile, section [main])\n'
         
     if S.use_ws: 
-      try:
-        S.ws.close()
-      except:
-        if S.debug: print 'websocket closing failed'
+      #try:
+      S.ws.close()
+      #except:
+      #  if S.debug: print 'websocket closing failed'
 
 pygame.init()
 t = Traidor()

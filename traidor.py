@@ -133,7 +133,9 @@ class Traidor:
     #print "-onMessage:", message
     update = False
     m = json.loads(message, use_decimal=True)
-    if S.debug_ws: print m #json.dumps(m, sort_keys=True, indent=2)
+    if S.debug_ws: 
+      sys.stderr.write(str(m)) 
+      sys.stderr.flush() #json.dumps(m, sort_keys=True, indent=2)
     channel = m['channel']
     op = m['op']
     #print 'message in channel ', channel, ' op: ', op
@@ -156,7 +158,10 @@ class Traidor:
       
       trade = Trade(trade['date'], trade['amount'], trade['price'], trade['trade_type'])
       S.trades.append(trade)
-      update = S.auto_update_depth
+      update = False
+      S.last_depth_update = time.time()
+      S.depth_invalid_counter += 1
+      #update = S.auto_update_depth
       
       # bots 
       S.datalock.release()
@@ -336,11 +341,12 @@ class Traidor:
       age = time.time() - S.last_depth_update
       if S.auto_update_depth:
         # once enough time passed since last depth update msg (burst ceased) or a lot of update messages queued up, call show_depth()
-        if (age >= 0.71 and S.depth_invalid_counter > 0) or S.depth_invalid_counter > 37:  
+        if (age >= 0.71 and S.depth_invalid_counter > 0) or S.depth_invalid_counter > 21:  
           #print 'show_depth_run(): calling show_depth()'
           S.show_depth()
           S.prompt()    
-
+          S.request_orders() 
+          
   # display depth data
   def show_depth(S):
     S.datalock.acquire()
@@ -388,7 +394,7 @@ class Traidor:
 
     # trades (websocket trades)
     i = 0
-    while i < S.display_height - len(S.trades):
+    while i < S.display_height - len(S.trades) and i < len(s):
       s[i] += '|'
       i += 1
     for t in S.trades[-S.display_height:]:
@@ -455,7 +461,6 @@ class Traidor:
       #key = raw_input("\ncancel order oid={%s} [y]es [n]o #> " % (o['oid']))
       key = raw_input("\ncancel order {%s} | %s for %s ? [y]es [n]o #>  " % (o['oid'], o['amount'], o['price']))
       if key[0] == 'y':
-        print 'CANCELLING order {%s}' % o['oid']
         S.do_cancel_order(o['oid'])
 
   # --- preliminary bot stuff (highly experimental, will be abstracted) -------------------------------
@@ -500,7 +505,7 @@ class Traidor:
       for c in cmd.split(';'): S.cmd(c.strip())
     else:
       if cmd[:3] == 'dws': S.debug_ws = not S.debug_ws; print 'debug_ws=', S.debug_ws
-      if cmd[:2] == 'ps': pygame.mixer.Sound(cmd[3:]).play()
+      elif cmd[:2] == 'ps': pygame.mixer.Sound(cmd[3:]).play()
       elif cmd[:3] == 'ws': S.use_ws = not S.use_ws; print 'use_ws=', S.use_ws
       elif cmd[:2] == 'lb': 
         i=0
@@ -514,17 +519,27 @@ class Traidor:
         S.addBot(wx)
         wx.initialize()
       elif cmd[0] == 'q': S.run = False
-      elif cmd[0] == 'h': S.show_help()
-      elif cmd[0] == 'b' or cmd[0] == 's': S.trade(cmd)
-      elif cmd[0] == 'c': S.cancel_order(cmd); S.show_orders()
+      elif cmd[0] == 'h': 
+        S.auto_update_depth = False
+        S.show_help()
+      elif cmd[0] == 'b' or cmd[0] == 's': 
+        S.trade(cmd)
+      elif cmd[0] == 'c': 
+        S.auto_update_depth = False
+        S.cancel_order(cmd); S.show_orders()
       elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth; print 'auto_update_depth = ', S.auto_update_depth
       elif cmd[0] == 'r': S.reload = True;
-      elif cmd[0] == 'o': S.request_orders(); S.show_orders()
+      elif cmd[0] == 'o': 
+        S.auto_update_depth = False
+        S.request_orders(); S.show_orders()
       elif cmd[0] == 'e': S.show_depth()
       #elif cmd[0] == 't': 
       #  for x in S.ticker: print x
       #  print S.ticker
-      elif cmd[0] == 'd': S.display_height = int(cmd[1:])
+      elif cmd[0] == 'd': 
+        S.displaylock.acquire()
+        S.display_height = int(cmd[1:])
+        S.displaylock.release()
       elif cmd[0] == 'p': 
         p = int(cmd[1:])
         try:

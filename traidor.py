@@ -78,7 +78,7 @@ class Traidor:
     t_show_depth.start()
 
     if S.use_ws:
-      S.ws = WebSocket('ws://websocket.mtgox.com:80/mtgox')
+      S.ws = WebSocket('wss://websocket.mtgox.com:80/mtgox')
       S.ws.setEventHandlers(S.onOpen, S.onMessage, S.onClose)  
 
   # --- bot handling ---------------------------------------------------------------------------------------------------------
@@ -265,7 +265,9 @@ class Traidor:
 
   def request_orders(S):
     S.datalock.acquire()
-    S.orders = S.request_json_authed('/code/getOrders.php')
+    try:
+      S.orders = S.request_json_authed('/code/getOrders.php')
+    except: pass # not good
     S.datalock.release()
 
   def request_ticker(S):
@@ -543,7 +545,7 @@ class Traidor:
       elif cmd[0] == 'p': 
         p = int(cmd[1:])
         try:
-          if p<2 or p>5: print 'precision must be 2..5'
+          if p<1 or p>5: print 'precision must be 2..5'
           else: PRICE_PREC = D(10) ** -p; S.reload = True
         except: print 'exception parsing precision value: %s' % p
           

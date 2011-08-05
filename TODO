@@ -34,3 +34,5 @@
   
   * cancel_order(): collect order ids first then cancel them, otherwise a request_order from other thread will fuck things up
   
+  * show_depth(): dislay "own volume" only if on correct side (ask/bid), otherwise pending order might be displayed as bid instead of ask or vice versa
+  

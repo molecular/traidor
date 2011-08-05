@@ -68,6 +68,7 @@ class Traidor:
     S.use_ws = parser.getboolean('main', 'use_websockets')
     S.debug_ws = parser.getboolean('main', 'debug_websockets')
     S.debug = parser.getboolean('main', 'debug')
+    S.eval_base = D(parser.get('monetary','evaluation_base'))
     S.bots = list()
 
 
@@ -465,6 +466,11 @@ class Traidor:
       if key[0] == 'y':
         S.do_cancel_order(o['oid'])
 
+  def eval(S, base):
+    delta = S.getBTC() - base
+    corrected_usd = S.getUSD() + (S.last_price * delta)
+    return corrected_usd
+
   # --- preliminary bot stuff (highly experimental, will be abstracted) -------------------------------
 
   def show_help(S):
@@ -493,7 +499,7 @@ class Traidor:
       ratio = S.orders['usds'] / S.orders['btcs']
     else: ratio = -1
     #return "\n%s | span %.4f | %.2f BTC, %.2f USD | %.2f #> " % (infoline, S.dmz_width, S.orders['btcs'], S.orders['usds'], ratio)
-    return "\n%s | %s BTC | %s USD | [h]elp #> " % (infoline, S.orders['btcs'], S.orders['usds'] )
+    return "\n%s | %s BTC | %s USD | eval(%s BTC) = %s USD | [h]elp #> " % (infoline, S.orders['btcs'], S.orders['usds'], S.eval_base, S.eval(S.eval_base).quantize(D('0.01')) )
 
   def prompt(S, infoline='mtgox'):
     S.displaylock.acquire()
@@ -507,6 +513,10 @@ class Traidor:
       for c in cmd.split(';'): S.cmd(c.strip())
     else:
       if cmd[:3] == 'dws': S.debug_ws = not S.debug_ws; print 'debug_ws=', S.debug_ws
+      elif cmd[:4] == 'eval': 
+        S.auto_update_depth = False
+        base = D(cmd[4:])
+        print 'evaluation based on %s BTC: %s USD' % (base.quantize(USD_PREC), S.eval(base).quantize(USD_PREC))
       elif cmd[:2] == 'ps': pygame.mixer.Sound(cmd[3:]).play()
       elif cmd[:3] == 'ws': S.use_ws = not S.use_ws; print 'use_ws=', S.use_ws
       elif cmd[:2] == 'lb': 

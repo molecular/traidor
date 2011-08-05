@@ -29,8 +29,7 @@ class Receiver(Thread):
     def run(self):
         frameStart = False
         message = ""
-        self.do_run = True
-        while self.do_run:
+        while 1:
             b = self.socket.recv(1)
             if not b:
                 self._handleError()
@@ -45,10 +44,7 @@ class Receiver(Thread):
                 message += b
             else:
                 print "error receiver" # TODO: error handling
-                
-    def stop(self):
-      self.do_run = False
-    
+        
     def _handleError(self):
         pass # TODO: implement
     

@@ -78,7 +78,7 @@ class Traidor:
     t_show_depth.start()
 
     if S.use_ws:
-      S.ws = WebSocket('ws://websocket.mtgox.com:80/mtgox')
+      S.ws = WebSocket('wss://websocket.mtgox.com:80/mtgox')
       S.ws.setEventHandlers(S.onOpen, S.onMessage, S.onClose)  
 
   # --- bot handling ---------------------------------------------------------------------------------------------------------
@@ -133,7 +133,9 @@ class Traidor:
     #print "-onMessage:", message
     update = False
     m = json.loads(message, use_decimal=True)
-    if S.debug_ws: print m #json.dumps(m, sort_keys=True, indent=2)
+    if S.debug_ws: 
+      sys.stderr.write(str(m)) 
+      sys.stderr.flush() #json.dumps(m, sort_keys=True, indent=2)
     channel = m['channel']
     op = m['op']
     #print 'message in channel ', channel, ' op: ', op
@@ -156,11 +158,14 @@ class Traidor:
       
       trade = Trade(trade['date'], trade['amount'], trade['price'], trade['trade_type'])
       S.trades.append(trade)
-      update = S.auto_update_depth
+      update = False
+      S.last_depth_update = time.time()
+      S.depth_invalid_counter += 1
+      #update = S.auto_update_depth
       
       # bots 
       S.datalock.release()
-      S.request_orders() # hmmmgrl, really? why is this so extremely fast to call?
+      #S.request_orders() # hmmmgrl, really? 
       S.last_price = trade.price
       for bot in S.bots:
         bot.trade(trade)
@@ -260,7 +265,9 @@ class Traidor:
 
   def request_orders(S):
     S.datalock.acquire()
-    S.orders = S.request_json_authed('/code/getOrders.php')
+    try:
+      S.orders = S.request_json_authed('/code/getOrders.php')
+    except: pass # not good
     S.datalock.release()
 
   def request_ticker(S):
@@ -336,11 +343,12 @@ class Traidor:
       age = time.time() - S.last_depth_update
       if S.auto_update_depth:
         # once enough time passed since last depth update msg (burst ceased) or a lot of update messages queued up, call show_depth()
-        if (age >= 0.71 and S.depth_invalid_counter > 0) or S.depth_invalid_counter > 37:  
+        if (age >= 0.71 and S.depth_invalid_counter > 0) or S.depth_invalid_counter > 21:  
           #print 'show_depth_run(): calling show_depth()'
           S.show_depth()
           S.prompt()    
-
+          S.request_orders() 
+          
   # display depth data
   def show_depth(S):
     S.datalock.acquire()
@@ -388,7 +396,7 @@ class Traidor:
 
     # trades (websocket trades)
     i = 0
-    while i < S.display_height - len(S.trades):
+    while i < S.display_height - len(S.trades) and i < len(s):
       s[i] += '|'
       i += 1
     for t in S.trades[-S.display_height:]:
@@ -455,7 +463,6 @@ class Traidor:
       #key = raw_input("\ncancel order oid={%s} [y]es [n]o #> " % (o['oid']))
       key = raw_input("\ncancel order {%s} | %s for %s ? [y]es [n]o #>  " % (o['oid'], o['amount'], o['price']))
       if key[0] == 'y':
-        print 'CANCELLING order {%s}' % o['oid']
         S.do_cancel_order(o['oid'])
 
   # --- preliminary bot stuff (highly experimental, will be abstracted) -------------------------------
@@ -463,12 +470,13 @@ class Traidor:
   def show_help(S):
     print "\n\
     h                     this help\n\
+    a                     toggle auto_update on/off\n\
     <ret>                 show public order book, recent trades and your order book\n\
     r                     S.reload - S.reload public order book and trades\n\
     b <amount> <price>    enter order to buy <amount> btc at <price>\n\
     s <amount> <price>    enter order to sell <amount> btc at <price>\n\
-    b <amount> i<index>     enter order to buy <amount> btc, price looked up from orderbook at <index>\n\
-    s <amount> i<index>     enter order to sell <amount> btc, price looked up from orderbook at <index>\n\
+    b <amount> i<index>   enter order to buy <amount> btc, price looked up from orderbook at <index>\n\
+    s <amount> i<index>   enter order to sell <amount> btc, price looked up from orderbook at <index>\n\
     o                     view your order book\n\
     c <index> <index> ... cancel order at <index> from orderbook (list of <index>s possible)\n\
     d <lines>             set height of depth display\n\
@@ -513,21 +521,31 @@ class Traidor:
         S.addBot(wx)
         wx.initialize()
       elif cmd[0] == 'q': S.run = False
-      elif cmd[0] == 'h': S.show_help()
-      elif cmd[0] == 'b' or cmd[0] == 's': S.trade(cmd)
-      elif cmd[0] == 'c': S.cancel_order(cmd); S.show_orders()
+      elif cmd[0] == 'h': 
+        S.auto_update_depth = False
+        S.show_help()
+      elif cmd[0] == 'b' or cmd[0] == 's': 
+        S.trade(cmd)
+      elif cmd[0] == 'c': 
+        S.auto_update_depth = False
+        S.cancel_order(cmd); S.show_orders()
       elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth; print 'auto_update_depth = ', S.auto_update_depth
       elif cmd[0] == 'r': S.reload = True;
-      elif cmd[0] == 'o': S.request_orders(); S.show_orders()
+      elif cmd[0] == 'o': 
+        S.auto_update_depth = False
+        S.request_orders(); S.show_orders()
       elif cmd[0] == 'e': S.show_depth()
       #elif cmd[0] == 't': 
       #  for x in S.ticker: print x
       #  print S.ticker
-      elif cmd[0] == 'd': S.display_height = int(cmd[1:])
+      elif cmd[0] == 'd': 
+        S.displaylock.acquire()
+        S.display_height = int(cmd[1:])
+        S.displaylock.release()
       elif cmd[0] == 'p': 
         p = int(cmd[1:])
         try:
-          if p<2 or p>5: print 'precision must be 2..5'
+          if p<1 or p>5: print 'precision must be 2..5'
           else: PRICE_PREC = D(10) ** -p; S.reload = True
         except: print 'exception parsing precision value: %s' % p
           
@@ -590,10 +608,10 @@ class Traidor:
         print '\n\n\n\n\nplease consider donating to 1Ct1vCN6idU1hKrRcmR96G4NgAgrswPiCn\n\n\n(to remove donation msg, put "donated=1" into configfile, section [main])\n'
         
     if S.use_ws: 
-      try:
-        S.ws.close()
-      except:
-        if S.debug: print 'websocket closing failed'
+      #try:
+      S.ws.close()
+      #except:
+      #  if S.debug: print 'websocket closing failed'
 
 #pygame.init()
 t = Traidor()

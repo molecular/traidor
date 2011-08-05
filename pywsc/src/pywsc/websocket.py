@@ -57,8 +57,8 @@ class WebSocket(object):
                 else:
                     handshakeLines.extend(buffer.strip());
                 buffer = ""
-        self.receiver = Receiver(self, self.socket)
-        self.receiver.start()
+        receiver = Receiver(self, self.socket)
+        receiver.start()
         self.onOpen()
         
     def send(self, data):
@@ -68,14 +68,13 @@ class WebSocket(object):
             print "error send" # TODO: error handling
         
     def close(self):
-        self.receiver.stop()
         self._sendCloseHandshake()
         self.socket.close()
         self.connected = False  
         
     def _sendCloseHandshake(self):
         if self.connected:
-            self._sendRaw('\ff\00')
+            self._sendRaw(0xff00)
         else:
             print "error sendCloseHandshake" # TODO: error handling
          

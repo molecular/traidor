@@ -30,4 +30,9 @@
   
   * theres supposed to be a private websocket channel that informs when orders get filled. use it.
   
+  * #S.request_orders() # hmmmgrl, really? <- removed. replace info that bots need somehow
+  
+  * cancel_order(): collect order ids first then cancel them, otherwise a request_order from other thread will fuck things up
+  
+  * show_depth(): dislay "own volume" only if on correct side (ask/bid), otherwise pending order might be displayed as bid instead of ask or vice versa
   

@@ -93,8 +93,12 @@ class Traidor:
 
   # --- bot support ----------------------------------------------------------------------------------------------------------
   
-  def getBTC(S): return S.orders['btcs']
-  def getUSD(S): return S.orders['usds']
+  def getBTC(S): 
+    #return S.orders['btcs']
+    return D(S.info['Wallets']['BTC']['Balance']['value'])
+  def getUSD(S): 
+    #return S.orders['usds']
+    return D(S.info['Wallets']['USD']['Balance']['value'])
 
   def get_order(S, oid):
     # woah, friggin linear search, do something !! ^^
@@ -143,7 +147,7 @@ class Traidor:
     #print 'message in channel ', channel, ' op: ', op
     
 #    if channel == 'd5f06780-30a8-4a48-a2f8-7ed181b4a13f': # ticker
-#      S.prompt('tick')
+#      print m
 
     S.datalock.acquire()
     
@@ -234,7 +238,7 @@ class Traidor:
   def request_json(S, url, params={}):
     start_time = time.time()
     data = urllib.urlencode(params)
-    req = urllib2.Request("https://mtgox.com:443" + url, data)
+    req = urllib2.Request("https://mtgox.com:443/api" + url, data)
     response = urllib2.urlopen(req)
     #s = response.read()
     #print s
@@ -250,7 +254,7 @@ class Traidor:
     return S.request_json(url, params)
 
   def request_market(S):
-    S.market = S.request_json('/code/data/getDepth.php')
+    S.market = S.request_json('/0/data/getDepth.php')
     
     S.highest_bid = sorted(S.market['bids'], reverse=True)[0][0];
     S.lowest_ask = sorted(S.market['asks'])[0][0];
@@ -273,16 +277,20 @@ class Traidor:
   def request_orders(S):
     S.datalock.acquire()
     try:
-      S.orders = S.request_json_authed('/code/getOrders.php')
+      S.orders = S.request_json_authed('/0/getOrders.php')
     except: pass # not good
     S.datalock.release()
 
+  def request_info(S):
+    S.info = S.request_json_authed('/0/info.php')
+    #print 'S.info: ', S.info
+
   def request_ticker(S):
-    S.ticker = S.request_json_authed('/code/data/ticker.php')
+    S.ticker = S.request_json_authed('/0/data/ticker.php')
 
   def request_trades(S):
     S.datalock.acquire()
-    S.trades2 = S.request_json('/code/data/getTrades.php')
+    S.trades2 = S.request_json('/0/data/getTrades.php')
     S.trades = list()
     for trade in S.trades2[-200:]:
       S.trades.append(Trade(trade['date'], trade['amount'], trade['price'], '?'))
@@ -344,6 +352,7 @@ class Traidor:
   # lazy depth display update (calls show_depth())
   def show_depth_run(S):
     print 'show_depth()-thread started'
+    info_counter = 0
     S.last_depth_update = time.time()
     while S.run:
       time.sleep(0.17)
@@ -353,8 +362,11 @@ class Traidor:
         if (age >= 0.71 and S.depth_invalid_counter > 0) or S.depth_invalid_counter > 21:  
           #print 'show_depth_run(): calling show_depth()'
           S.show_depth()
+          #S.request_orders() 
+          info_counter += 1
+          if info_counter % 10 == 0: 
+            S.request_info()
           S.prompt()    
-          S.request_orders() 
           
   # display depth data
   def show_depth(S):
@@ -503,11 +515,11 @@ class Traidor:
     q                     quit\n\
 "
   def getPrompt(S, infoline):
-    if (S.orders['btcs'] != 0): 
-      ratio = S.orders['usds'] / S.orders['btcs']
+    if (S.getBTC() != 0): 
+      ratio = S.getUSD() / S.getBTC()
     else: ratio = -1
-    #return "\n%s | span %.4f | %.2f BTC, %.2f USD | %.2f #> " % (infoline, S.dmz_width, S.orders['btcs'], S.orders['usds'], ratio)
-    return "\n%s | %s BTC | %s USD | eval(%s BTC) = %s USD | [h]elp #> " % (infoline, S.orders['btcs'], S.orders['usds'], S.eval_base, S.eval(S.eval_base).quantize(D('0.01')) )
+    #return "\n%s | span %.4f | %.2f BTC, %.2f USD | %.2f #> " % (infoline, S.dmz_width, S.getBTC(), S.orders['usds'], ratio)
+    return "\n%s | %s BTC | %s USD | eval(%s BTC) = %s USD | [h]elp #> " % (infoline, S.getBTC(), S.getUSD(), S.eval_base, S.eval(S.eval_base).quantize(D('0.01')) )
 
   def prompt(S, infoline='mtgox'):
     S.displaylock.acquire()
@@ -585,12 +597,14 @@ class Traidor:
     # es geht glaub nur um S.last_trade? oder?
     #S.request_trades()
 
-    #if S.debug: print 'request_orders()'
+    if S.debug: print 'request_info()'
+    S.request_info()
+    if S.debug: print 'request_orders()'
     S.request_orders()
-    #if S.debug: print 'request_ticker()'
+    if S.debug: print 'request_ticker()'
     S.request_ticker()
     S.last_price = S.ticker['ticker']['last']
-    #if S.debug: print 'request_market()'
+    if S.debug: print 'request_market()'
     S.request_market();
     S.prompt()
     

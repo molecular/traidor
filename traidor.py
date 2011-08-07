@@ -72,7 +72,8 @@ class Traidor:
     S.debug_ws = parser.getboolean('main', 'debug_websockets')
     S.debug_request_timing = parser.getboolean('main', 'debug_request_timing')
     S.debug = parser.getboolean('main', 'debug')
-    S.eval_base = D(parser.get('monetary','evaluation_base'))
+    S.eval_base_btc = D(parser.get('monetary','evaluation_base_btc'))
+    S.eval_base_usd = D(parser.get('monetary','evaluation_base_usd'))
     S.bots = list()
 
 
@@ -238,7 +239,7 @@ class Traidor:
   def request_json(S, url, params={}):
     start_time = time.time()
     data = urllib.urlencode(params)
-    req = urllib2.Request("https://mtgox.com:443/api" + url, data)
+    req = urllib2.Request("https://mtgox.com:443" + url, data)
     response = urllib2.urlopen(req)
     #s = response.read()
     #print s
@@ -254,7 +255,7 @@ class Traidor:
     return S.request_json(url, params)
 
   def request_market(S):
-    S.market = S.request_json('/0/data/getDepth.php')
+    S.market = S.request_json('/api/0/data/getDepth.php')
     
     S.highest_bid = sorted(S.market['bids'], reverse=True)[0][0];
     S.lowest_ask = sorted(S.market['asks'])[0][0];
@@ -277,20 +278,20 @@ class Traidor:
   def request_orders(S):
     S.datalock.acquire()
     try:
-      S.orders = S.request_json_authed('/0/getOrders.php')
+      S.orders = S.request_json_authed('/api/0/getOrders.php')
     except: pass # not good
     S.datalock.release()
 
   def request_info(S):
-    S.info = S.request_json_authed('/0/info.php')
+    S.info = S.request_json_authed('/api/0/info.php')
     #print 'S.info: ', S.info
 
   def request_ticker(S):
-    S.ticker = S.request_json_authed('/0/data/ticker.php')
+    S.ticker = S.request_json_authed('/api/0/data/ticker.php')
 
   def request_trades(S):
     S.datalock.acquire()
-    S.trades2 = S.request_json('/0/data/getTrades.php')
+    S.trades2 = S.request_json('/api/0/data/getTrades.php')
     S.trades = list()
     for trade in S.trades2[-200:]:
       S.trades.append(Trade(trade['date'], trade['amount'], trade['price'], '?'))
@@ -519,7 +520,10 @@ class Traidor:
       ratio = S.getUSD() / S.getBTC()
     else: ratio = -1
     #return "\n%s | span %.4f | %.2f BTC, %.2f USD | %.2f #> " % (infoline, S.dmz_width, S.getBTC(), S.orders['usds'], ratio)
-    return "\n%s | %s BTC | %s USD | eval(%s BTC) = %s USD | [h]elp #> " % (infoline, S.getBTC(), S.getUSD(), S.eval_base, S.eval(S.eval_base).quantize(D('0.01')) )
+    rc = "\n%s | %s BTC | %s USD" % (infoline, S.getBTC(), S.getUSD() )
+    if S.eval_base_btc > 0: rc += " | eval(%s BTC) = %s USD" % (S.eval_base_btc, (S.eval(S.eval_base_btc) - S.eval_base_usd).quantize(D('0.01')))
+    rc += " | [h]elp #> "
+    return rc
 
   def prompt(S, infoline='mtgox'):
     S.displaylock.acquire()
@@ -601,7 +605,7 @@ class Traidor:
     S.request_info()
     if S.debug: print 'request_orders()'
     S.request_orders()
-    if S.debug: print 'request_ticker()'
+    #if S.debug: print 'request_ticker()'
     S.request_ticker()
     S.last_price = S.ticker['ticker']['last']
     if S.debug: print 'request_market()'
@@ -647,6 +651,7 @@ class Traidor:
       if (len(key) > 0):
         S.cmd(key)
       else: 
+        S.request_info();
         S.show_depth();
       counter += 1
       if (counter % 31) == 13 and not S.donated:

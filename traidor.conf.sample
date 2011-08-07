@@ -11,5 +11,5 @@ account_pass: change_to_your_mtgox_account_pass
 trading_fee: 0.0065
 
 [monetary]
-evaluation_base=0
+evaluation_base_btc=0
 evaluation_base_usd=0

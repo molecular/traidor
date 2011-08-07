@@ -45,8 +45,8 @@ class TriggerBot(Bot):
     (S.compare == ">=" and trade.price >= S.price) or \
     (S.compare == "<" and trade.price < S.price) or \
     (S.compare == "<=" and trade.price <= S.price):
-      print '\nTRIGGER BOT %s TRIGGER %s\n' % (S.getName(), S.price)
-      S.x.cmd(S.cmd)
+      print '\nTRIGGER BOT %s TRIGGER %s, executing "%s"\n' % (S.getName(), S.price, S.cmd)
+      S.x.cmd(S.cmd, is_bot=True)
       S.x.removeBot(S)
 
   def getName(S):

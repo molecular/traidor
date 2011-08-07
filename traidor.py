@@ -64,6 +64,7 @@ class Traidor:
     parser.read('traidor.conf')
     S.mtgox_account_name = parser.get('mtgox', 'account_name')
     S.mtgox_account_pass = parser.get('mtgox', 'account_pass')
+    S.trading_fee = D(parser.get('mtgox','trading_fee'))
     S.donated = parser.getboolean('main', 'donated')
     S.use_ws = parser.getboolean('main', 'use_websockets')
     S.debug_ws = parser.getboolean('main', 'debug_websockets')
@@ -352,6 +353,7 @@ class Traidor:
           
   # display depth data
   def show_depth(S):
+    S.displaylock.acquire()
     S.datalock.acquire()
     s = []
     my_orders = S.orders['orders']
@@ -410,18 +412,18 @@ class Traidor:
 
     S.datalock.release()
     
-    S.displaylock.acquire()
     print '\n\n       ------ BUYING BITCOIN ------ | ------- SELLING BITCOIN ------ | ----------- TRADES ------------'
     print '                                                                     |'
     print '[IDX]   YOU   bid        vol   accumulated      vol   ask       YOU  |  time        amount       price'
     print '                                                                     |'
     for str in s[-S.display_height:]:
       print str
+      
     S.displaylock.release()
         
   # --- actions -------------------------------------------------------------------------------------------------------
 
-  def trade(S, key):
+  def trade(S, key, is_bot=False):
     p = key.split(' ')
     type = 'unknown'
     if p[0][0] == 'b': type = 'buy'; m = 'bids'; air = S.order_distance
@@ -444,7 +446,10 @@ class Traidor:
       #price = S.market[m][index][0] + air
       
     # price = "%.4f" % price
-    k = raw_input("\n%s %s BTC for %s USD [y]es [n]o #> " % (type, vol, price))
+    if not is_bot:
+      k = raw_input("\n%s %s BTC for %s USD [y]es [n]o #> " % (type, vol, price))
+    else:
+      k = 'y'
     if k[0] == 'y':
       result = S.do_trade(type, vol, price)
       S.show_orders()
@@ -452,9 +457,7 @@ class Traidor:
     else:
       print 'ABORTED'
       return None
-      
-    S.show_orders()
-    
+          
   def cancel_order(S, key):
     p = key.split(' ')
     print p
@@ -468,7 +471,7 @@ class Traidor:
 
   def eval(S, base):
     delta = S.getBTC() - base
-    corrected_usd = S.getUSD() + (S.last_price * delta)
+    corrected_usd = S.getUSD() + (S.last_price * delta * (D('1.0') - S.trading_fee))
     return corrected_usd
 
   # --- preliminary bot stuff (highly experimental, will be abstracted) -------------------------------
@@ -507,7 +510,7 @@ class Traidor:
     sys.stdout.flush()
     S.displaylock.release()
 
-  def cmd(S, cmd):
+  def cmd(S, cmd, is_bot=False):
     global PRICE_PREC
     if (cmd.rfind(';') >= 0):
       for c in cmd.split(';'): S.cmd(c.strip())
@@ -535,7 +538,7 @@ class Traidor:
         S.auto_update_depth = False
         S.show_help()
       elif cmd[0] == 'b' or cmd[0] == 's': 
-        S.trade(cmd)
+        S.trade(cmd, is_bot)
       elif cmd[0] == 'c': 
         S.auto_update_depth = False
         S.cancel_order(cmd); S.show_orders()

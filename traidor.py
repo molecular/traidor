@@ -11,8 +11,10 @@ import time
 import subprocess
 from threading import *
 from ConfigParser import SafeConfigParser
-from pywsc.websocket import WebSocket
+#from pywsc.websocket import WebSocket
 import pygame
+from contextlib import closing
+from websocket import WebSocket
 
 from common import *
 from bot import *
@@ -79,9 +81,6 @@ class Traidor:
     t_show_depth = Thread(target = S.show_depth_run)
     t_show_depth.start()
 
-    if S.use_ws:
-      S.ws = WebSocket('wss://websocket.mtgox.com:80/mtgox')
-      S.ws.setEventHandlers(S.onOpen, S.onMessage, S.onClose)  
 
   # --- bot handling ---------------------------------------------------------------------------------------------------------
   
@@ -561,7 +560,23 @@ class Traidor:
           if p<1 or p>5: print 'precision must be 2..5'
           else: PRICE_PREC = D(10) ** -p; S.reload = True
         except: print 'exception parsing precision value: %s' % p
-          
+
+  def websocket_thread(S):
+    if S.use_ws:
+      S.ws = WebSocket('ws://websocket.mtgox.com/mtgox', version=6)
+      msg = S.ws.recv(2**16-1)
+      while msg is not None:
+          #print >> sys.stderr, msg
+          S.onMessage(msg)
+          msg = S.ws.recv(2**16-1)
+    #  with closing(WebSocket('ws://websocket.mtgox.com/mtgox', version=6)) as s:
+    #      msg = s.recv(2**16-1)
+    #      while msg is not None:
+    #          print >> sys.stderr, msg
+    #          msg = s.recv(2**16-1)
+              #S.onMessage(msg)
+    
+
   def __call__(S): # mainloop
     global PRICE_PREC
     S.run = True
@@ -586,19 +601,24 @@ class Traidor:
       bot.initialize()
     if S.debug: print 'ready'
       
+    # start websocket_thread
+    if S.use_ws:
+      t_websocket = Thread(target = S.websocket_thread)
+      t_websocket.start()
+                
     counter = 0
     while (S.run):
         
-      #print "  dmz width: %.4f\n" % S.dmz_width
-      if S.use_ws:
-        while not S.ws.connected:
-          if S.debug: print 'connecting websocket...'
-          try:
-            S.ws.connect();
-            if S.debug: print 'websocket connected'
-          except:
-            print 'connection problem, retrying later...'
-            time.sleep(1);
+                
+      #if S.use_ws:
+      #  while not S.ws.connected:
+      #    if S.debug: print 'connecting websocket...'
+      #    try:
+      #      S.ws.connect();
+      #      if S.debug: print 'websocket connected'
+      #    except:
+      #      print 'connection problem, retrying later...'
+      #      time.sleep(1);
             
       if (S.reload): 
         #S.request_orders()

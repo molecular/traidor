@@ -240,9 +240,15 @@ class Traidor:
     start_time = time.time()
     data = urllib.urlencode(params)
     req = urllib2.Request("https://mtgox.com:443" + url, data)
-    response = urllib2.urlopen(req)
-    #s = response.read()
-    #print s
+    success = False
+    while not success:
+      try:
+        response = urllib2.urlopen(req)
+        success = True
+      except:
+        print 'exception requesting "', url, '": ', sys.exc_info()[0]
+        print 'retrying soon...'
+        thread.sleep(3)
     rc = json.load(response, use_decimal=True, object_hook=convert_certain_json_objects_to_decimal)
     duration = time.time() - start_time
     if S.debug_request_timing:

@@ -70,6 +70,7 @@ class Traidor:
     S.donated = parser.getboolean('main', 'donated')
     S.use_ws = parser.getboolean('main', 'use_websockets')
     S.debug_ws = parser.getboolean('main', 'debug_websockets')
+    S.debug_request_timing = parser.getboolean('main', 'debug_request_timing')
     S.debug = parser.getboolean('main', 'debug')
     S.eval_base = D(parser.get('monetary','evaluation_base'))
     S.bots = list()
@@ -231,12 +232,17 @@ class Traidor:
 
 
   def request_json(S, url, params={}):
+    start_time = time.time()
     data = urllib.urlencode(params)
     req = urllib2.Request("https://mtgox.com:443" + url, data)
     response = urllib2.urlopen(req)
     #s = response.read()
     #print s
-    return json.load(response, use_decimal=True, object_hook=convert_certain_json_objects_to_decimal)
+    rc = json.load(response, use_decimal=True, object_hook=convert_certain_json_objects_to_decimal)
+    duration = time.time() - start_time
+    if S.debug_request_timing:
+      print 'requesting %s took %s seconds' % (url, duration)
+    return rc
 
   def request_json_authed(S, url, params={}):
     params['name'] = S.mtgox_account_name
@@ -566,16 +572,8 @@ class Traidor:
       S.ws = WebSocket('ws://websocket.mtgox.com/mtgox', version=6)
       msg = S.ws.recv(2**16-1)
       while msg is not None:
-          #print >> sys.stderr, msg
           S.onMessage(msg)
           msg = S.ws.recv(2**16-1)
-    #  with closing(WebSocket('ws://websocket.mtgox.com/mtgox', version=6)) as s:
-    #      msg = s.recv(2**16-1)
-    #      while msg is not None:
-    #          print >> sys.stderr, msg
-    #          msg = s.recv(2**16-1)
-              #S.onMessage(msg)
-    
 
   def __call__(S): # mainloop
     global PRICE_PREC
@@ -587,12 +585,12 @@ class Traidor:
     # es geht glaub nur um S.last_trade? oder?
     #S.request_trades()
 
-    if S.debug: print 'request_orders()'
+    #if S.debug: print 'request_orders()'
     S.request_orders()
-    if S.debug: print 'request_ticker()'
+    #if S.debug: print 'request_ticker()'
     S.request_ticker()
     S.last_price = S.ticker['ticker']['last']
-    if S.debug: print 'request_market()'
+    #if S.debug: print 'request_market()'
     S.request_market();
     S.prompt()
     
@@ -640,12 +638,6 @@ class Traidor:
       if (counter % 31) == 13 and not S.donated:
         print '\n\n\n\n\nplease consider donating to 1Ct1vCN6idU1hKrRcmR96G4NgAgrswPiCn\n\n\n(to remove donation msg, put "donated=1" into configfile, section [main])\n'
         
-    if S.use_ws: 
-      #try:
-      S.ws.close()
-      #except:
-      #  if S.debug: print 'websocket closing failed'
-
 pygame.init()
 t = Traidor()
 t.addBot(BeepBot(t))

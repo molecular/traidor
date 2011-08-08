@@ -280,11 +280,12 @@ class Traidor:
     S.datalock.release()
 
   def request_orders(S):
+    #try:
+    rc = S.request_json_authed('/api/0/getOrders.php')
     S.datalock.acquire()
-    try:
-      S.orders = S.request_json_authed('/api/0/getOrders.php')
-    except: pass # not good
+    S.orders = rc
     S.datalock.release()
+    return S.orders
 
   def request_info(S):
     S.info = S.request_json_authed('/api/0/info.php')
@@ -561,7 +562,9 @@ class Traidor:
         wx = TraidorApp(t)
         S.addBot(wx)
         wx.initialize()
-      elif cmd[0] == 'q': S.run = False
+      elif cmd[0] == 'q': 
+        S.run = False
+        S.t_websocket.join(timeout=1)
       elif cmd[0] == 'h': 
         S.auto_update_depth = False
         S.show_help()
@@ -606,8 +609,13 @@ class Traidor:
     while S.run:
       time.sleep(0.17)
       if S.should_request:
-        S.request_orders()
-        S.should_request = False
+        rc = timeout(S.request_orders(), timeout_duration=5000)
+        debug_print('request_orders() = %s' % rc)
+        if rc != None:
+          S.should_request = False
+        else:
+          debug_print('request_orders() timeout')
+          
     print 'request_thread() exit'
           
   def __call__(S): # mainloop
@@ -638,11 +646,13 @@ class Traidor:
       
     # start websocket_thread
     if S.use_ws:
-      t_websocket = Thread(target = S.websocket_thread)
-      t_websocket.start()
+      S.t_websocket = Thread(target = S.websocket_thread)
+      S.t_websocket.setDaemon(True)
+      S.t_websocket.start()
 
     # start request_thread() thread
     t_request = Thread(target = S.request_thread)
+    t_request.setDaemon(True)
     t_request.start()
 
     counter = 0

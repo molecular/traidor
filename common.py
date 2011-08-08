@@ -1,7 +1,7 @@
 from decimal import Decimal as D
 import time
 
-__all__ = ["D", "dec", "say", "debug_print", "BTC_PREC", "USD_PREC"]
+__all__ = ["D", "dec", "say", "debug_print", "timeout", "BTC_PREC", "USD_PREC"]
 
 BTC_PREC = D('0.00000001')
 USD_PREC = D('0.00001')
@@ -31,3 +31,24 @@ def debug_print(str):
   tm = time.localtime()
   debug_log.write( '%s: %s\n' % (time.strftime('%Y/%m/%d-%H:%M:%S',tm), str) )
   debug_log.flush()
+
+def timeout(func, args=(), kwargs={}, timeout_duration=1, default=None):
+  import threading
+  class InterruptableThread(threading.Thread):
+    def __init__(self):
+      threading.Thread.__init__(self)
+      self.result = None
+
+    def run(self):
+      try:
+        self.result = func(*args, **kwargs)
+      except:
+        self.result = default
+
+  it = InterruptableThread()
+  it.start()
+  it.join(timeout_duration)
+  if it.isAlive():
+    return default
+  else:
+    return it.result

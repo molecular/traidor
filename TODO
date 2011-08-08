@@ -38,3 +38,4 @@
   
   * somehow quit cleanly on "q"
   
+  * load trading fee from getInfo(), not configfile

@@ -250,7 +250,7 @@ class Traidor:
     rc = json.load(response, use_decimal=True, object_hook=convert_certain_json_objects_to_decimal)
     duration = time.time() - start_time
     if S.debug_request_timing:
-      debug_print('requesting %s took %s seconds' % (url, duration))
+      debug_print('requesting https://mtgox.com:443%s took %s seconds' % (url, duration))
     return rc
 
   def request_json_authed(S, url, params={}):
@@ -674,7 +674,7 @@ class Traidor:
       if (len(key) > 0):
         S.cmd(key)
       else: 
-        S.request_info();
+        #S.request_info();
         S.show_depth();
       counter += 1
       if (counter % 31) == 13 and not S.donated:

@@ -29,5 +29,5 @@ def dec(dec, before, after):
 debug_log = open('debug.log', 'w')
 def debug_print(str):
   tm = time.localtime()
-  debug_log.write( '%s: %s\n' % (time.strftime('%Y%m%d-%H:%M:%S',tm), str) )
+  debug_log.write( '%s: %s\n' % (time.strftime('%Y/%m/%d-%H:%M:%S',tm), str) )
   debug_log.flush()

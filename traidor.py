@@ -76,13 +76,11 @@ class Traidor:
     S.eval_base_usd = D(parser.get('monetary','evaluation_base_usd'))
     S.bots = list()
 
-
     t = Thread(target = S)
     t.start()
     
     t_show_depth = Thread(target = S.show_depth_run)
     t_show_depth.start()
-
 
   # --- bot handling ---------------------------------------------------------------------------------------------------------
   
@@ -95,11 +93,11 @@ class Traidor:
   # --- bot support ----------------------------------------------------------------------------------------------------------
   
   def getBTC(S): 
-    #return S.orders['btcs']
-    return D(S.info['Wallets']['BTC']['Balance']['value'])
+    return S.orders['btcs']
+    #return D(S.info['Wallets']['BTC']['Balance']['value'])
   def getUSD(S): 
-    #return S.orders['usds']
-    return D(S.info['Wallets']['USD']['Balance']['value'])
+    return S.orders['usds']
+    #return D(S.info['Wallets']['USD']['Balance']['value'])
 
   def get_order(S, oid):
     # woah, friggin linear search, do something !! ^^
@@ -252,7 +250,7 @@ class Traidor:
     rc = json.load(response, use_decimal=True, object_hook=convert_certain_json_objects_to_decimal)
     duration = time.time() - start_time
     if S.debug_request_timing:
-      print 'requesting %s took %s seconds' % (url, duration)
+      debug_print('requesting %s took %s seconds' % (url, duration))
     return rc
 
   def request_json_authed(S, url, params={}):
@@ -371,10 +369,13 @@ class Traidor:
           S.show_depth()
           #S.request_orders() 
           info_counter += 1
-          if info_counter % 10 == 0: 
-            S.request_info()
+          #if info_counter % 10 == 0: 
+          #  S.request_info()
+          #S.request_orders()
+          S.should_request = True
           S.prompt()    
-          
+    print 'show_depth()-thread exit'
+    
   # display depth data
   def show_depth(S):
     S.displaylock.acquire()
@@ -591,12 +592,24 @@ class Traidor:
 
   def websocket_thread(S):
     if S.use_ws:
+      print 'websocket_thread() started'
       S.ws = WebSocket('ws://websocket.mtgox.com/mtgox', version=6)
       msg = S.ws.recv(2**16-1)
-      while msg is not None:
+      while msg is not None and S.run:
           S.onMessage(msg)
           msg = S.ws.recv(2**16-1)
+      print 'websocket_thread() exit'
 
+  def request_thread(S):
+    print 'request_thread() started'
+    S.should_request = False
+    while S.run:
+      time.sleep(0.17)
+      if S.should_request:
+        S.request_orders()
+        S.should_request = False
+    print 'request_thread() exit'
+          
   def __call__(S): # mainloop
     global PRICE_PREC
     S.run = True
@@ -607,11 +620,11 @@ class Traidor:
     # es geht glaub nur um S.last_trade? oder?
     #S.request_trades()
 
-    if S.debug: print 'request_info()'
-    S.request_info()
+    #if S.debug: print 'request_info()'
+    #S.request_info()
     if S.debug: print 'request_orders()'
     S.request_orders()
-    #if S.debug: print 'request_ticker()'
+    if S.debug: print 'request_ticker()'
     S.request_ticker()
     S.last_price = S.ticker['ticker']['last']
     if S.debug: print 'request_market()'
@@ -627,7 +640,11 @@ class Traidor:
     if S.use_ws:
       t_websocket = Thread(target = S.websocket_thread)
       t_websocket.start()
-                
+
+    # start request_thread() thread
+    t_request = Thread(target = S.request_thread)
+    t_request.start()
+
     counter = 0
     while (S.run):
         

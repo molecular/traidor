@@ -1,6 +1,7 @@
 from decimal import Decimal as D
+import time
 
-__all__ = ["D", "dec", "say", "BTC_PREC", "USD_PREC"]
+__all__ = ["D", "dec", "say", "debug_print", "BTC_PREC", "USD_PREC"]
 
 BTC_PREC = D('0.00000001')
 USD_PREC = D('0.00001')
@@ -24,3 +25,9 @@ def dec(dec, before, after):
   rc += '                          '[:(after+before+1)-len(rc)]
   rc = rc[:(before+after+1)]
   return rc # rc.replace('0.', 'o.').replace('.0', '.o')
+
+debug_log = open('debug.log', 'w')
+def debug_print(str):
+  tm = time.localtime()
+  debug_log.write( '%s: %s\n' % (time.strftime('%Y%m%d-%H:%M:%S',tm), str) )
+  debug_log.flush()

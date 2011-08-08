@@ -170,7 +170,7 @@ class Traidor:
       
       # bots 
       S.datalock.release()
-      #S.request_orders() # hmmmgrl, really? 
+      #S.orders = S.request_orders() # hmmmgrl, really? 
       S.last_price = trade.price
       for bot in S.bots:
         bot.trade(trade)
@@ -280,12 +280,7 @@ class Traidor:
     S.datalock.release()
 
   def request_orders(S):
-    #try:
-    rc = S.request_json_authed('/api/0/getOrders.php')
-    S.datalock.acquire()
-    S.orders = rc
-    S.datalock.release()
-    return S.orders
+    return S.request_json_authed('/api/0/getOrders.php')
 
   def request_info(S):
     S.info = S.request_json_authed('/api/0/info.php')
@@ -368,7 +363,7 @@ class Traidor:
         if (age >= 0.71 and S.depth_invalid_counter > 0) or S.depth_invalid_counter > 21:  
           #print 'show_depth_run(): calling show_depth()'
           S.show_depth()
-          #S.request_orders() 
+          #S.orders = S.request_orders() DATALOCK
           info_counter += 1
           #if info_counter % 10 == 0: 
           #  S.request_info()
@@ -578,6 +573,9 @@ class Traidor:
       elif cmd[0] == 'o': 
         S.auto_update_depth = False
         rc = S.request_orders(); 
+        S.datalock.acquire()
+        S.orders = rc
+        S.datalock.release()
         S.show_orders()
       elif cmd[0] == 'e': S.show_depth()
       #elif cmd[0] == 't': 
@@ -610,15 +608,19 @@ class Traidor:
     while S.run:
       time.sleep(0.17)
       if S.should_request:
+        timeout_secs = 5
         import random
-        id = int(round(random.random(),3))
+        id = int(round(random.random()*1E3,3))
         debug_print('calling timeout(request_orders()) id=%s...' % id)
-        rc = timeout(S.request_orders, timeout_duration=5000)
+        rc = timeout(S.request_orders, timeout_duration=timeout_secs)
         debug_print('request_orders() id=%s done' % (id))
         if rc != None:
           S.should_request = False
+          S.datalock.acquire()
+          S.orders = rc
+          S.datalock.release()
         else:
-          debug_print('request_orders() timeout')
+          debug_print('request_orders() timeout (%ss)' % timeout_secs)
           
     print 'request_thread() exit'
           
@@ -635,7 +637,7 @@ class Traidor:
     #if S.debug: print 'request_info()'
     #S.request_info()
     if S.debug: print 'request_orders()'
-    S.request_orders()
+    S.orders = S.request_orders() # DATALOCK?
     if S.debug: print 'request_ticker()'
     S.request_ticker()
     S.last_price = S.ticker['ticker']['last']

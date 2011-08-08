@@ -577,7 +577,8 @@ class Traidor:
       elif cmd[0] == 'r': S.reload = True;
       elif cmd[0] == 'o': 
         S.auto_update_depth = False
-        S.request_orders(); S.show_orders()
+        rc = S.request_orders(); 
+        S.show_orders()
       elif cmd[0] == 'e': S.show_depth()
       #elif cmd[0] == 't': 
       #  for x in S.ticker: print x
@@ -609,8 +610,11 @@ class Traidor:
     while S.run:
       time.sleep(0.17)
       if S.should_request:
-        rc = timeout(S.request_orders(), timeout_duration=5000)
-        debug_print('request_orders() = %s' % rc)
+        import random
+        id = int(round(random.random(),3))
+        debug_print('calling timeout(request_orders()) id=%s...' % id)
+        rc = timeout(S.request_orders, timeout_duration=5000)
+        debug_print('request_orders() id=%s done' % (id))
         if rc != None:
           S.should_request = False
         else:

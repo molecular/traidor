@@ -26,7 +26,7 @@
         raise URLError(err)
     URLError: <urlopen error [Errno 104] Connection reset by peer>
     
-  * use readline for command entry?
+  * use readline for command entry? something with a history that is not affected by output. output-paging?
   
   * theres supposed to be a private websocket channel that informs when orders get filled. use it.
   
@@ -39,3 +39,6 @@
   * somehow quit cleanly on "q"
   
   * load trading fee from getInfo(), not configfile
+  
+  * try "p1": the asks or bids might end earlier than their respective counterpart. display some "          " instead of letting trades bleed in
+  

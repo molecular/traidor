@@ -51,6 +51,7 @@ class Traidor:
     S.auto_update_depth = True
     S.auto_update_trade = True
     S.depth_invalid_counter = 0
+    S.last_price = D('0.0')
 #    S.connection = httplib2.HTTPSConnectionWithTimeout("mtgox.com:443", strict=False, timeout=10)
     S.orders = {'btcs': -1, 'usds': -1}
     S.trades = []
@@ -483,6 +484,7 @@ class Traidor:
   def cancel_order(S, key):
     p = key.split(' ')
     print p
+    S.datalock.acquire()
     for idx in p[1:]:
       index = int(idx)
       o = sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True)[index]
@@ -490,7 +492,8 @@ class Traidor:
       key = raw_input("\ncancel order {%s} | %s for %s ? [y]es [n]o #>  " % (o['oid'], o['amount'], o['price']))
       if key[0] == 'y':
         S.do_cancel_order(o['oid'])
-
+    S.datalock.release()
+    
   def eval(S, base):
     delta = S.getBTC() - base
     corrected_usd = S.getUSD() + (S.last_price * delta * (D('1.0') - S.trading_fee))
@@ -565,6 +568,7 @@ class Traidor:
         S.auto_update_depth = False
         S.show_help()
       elif cmd[0] == 'b' or cmd[0] == 's': 
+        S.auto_update_depth = False
         S.trade(cmd, is_bot)
       elif cmd[0] == 'c': 
         S.auto_update_depth = False
@@ -642,9 +646,9 @@ class Traidor:
     #S.request_info()
     if S.debug: print 'request_orders()'
     S.orders = S.request_orders() # DATALOCK?
-    if S.debug: print 'request_ticker()'
-    S.request_ticker()
-    S.last_price = S.ticker['ticker']['last']
+    #if S.debug: print 'request_ticker()'
+    #S.request_ticker()
+    #S.last_price = S.ticker['ticker']['last']
     if S.debug: print 'request_market()'
     S.request_market();
     S.prompt()
@@ -680,15 +684,12 @@ class Traidor:
       #      time.sleep(1);
             
       if (S.reload): 
-        #S.request_orders()
-        S.request_ticker()
+        #S.request_ticker()
         if not S.use_ws: S.request_trades()
         S.request_market()
         # trigger show_depth() thread
         S.last_depth_update = time.time()
         S.depth_invalid_counter += 1
-        # load BTC/USD somewhere in above calls!
-        #S.show_orders()
         
       #S.print_stuff();
       S.reload = False;

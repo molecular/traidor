@@ -426,7 +426,8 @@ class Traidor:
     for t in S.trades[-S.display_height:]:
       tm = time.localtime(t.time)
       str = "|  %s %s for %s %s" % (time.strftime('%H:%M:%S',tm), dec(t.amount, 4, 5), dec(t.price, 3, 5), t.type)
-      s[i] += str
+      try: s[i] += str 
+      except: pass
       i += 1
 
     S.depth_invalid_counter = 0
@@ -595,11 +596,13 @@ class Traidor:
   def websocket_thread(S):
     if S.use_ws:
       print 'websocket_thread() started'
-      S.ws = WebSocket('ws://websocket.mtgox.com/mtgox', version=6)
-      msg = S.ws.recv(2**16-1)
-      while msg is not None and S.run:
-          S.onMessage(msg)
-          msg = S.ws.recv(2**16-1)
+      while S.run:
+        print 'connecting websocket'
+        S.ws = WebSocket('ws://websocket.mtgox.com/mtgox', version=6)
+        msg = S.ws.recv(2**16-1)
+        while msg is not None and S.run:
+            S.onMessage(msg)
+            msg = S.ws.recv(2**16-1)
       print 'websocket_thread() exit'
 
   def request_thread(S):
@@ -608,7 +611,7 @@ class Traidor:
     while S.run:
       time.sleep(0.17)
       if S.should_request:
-        timeout_secs = 5
+        timeout_secs = 15
         import random
         id = int(round(random.random()*1E3,3))
         debug_print('calling timeout(request_orders()) id=%s...' % id)

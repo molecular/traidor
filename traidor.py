@@ -606,7 +606,7 @@ class Traidor:
               msg = S.ws.recv(2**16-1)
         except:
           print 'exception connecting websocket: ', sys.exc_info()[0], " will retry..."
-          thread.sleep(3000)
+          time.sleep(3000)
           
       print 'websocket_thread() exit'
 
@@ -683,8 +683,10 @@ class Traidor:
         #S.request_orders()
         S.request_ticker()
         if not S.use_ws: S.request_trades()
-        S.show_depth()
         S.request_market()
+        # trigger show_depth() thread
+        S.last_depth_update = time.time()
+        S.depth_invalid_counter += 1
         # load BTC/USD somewhere in above calls!
         #S.show_orders()
         

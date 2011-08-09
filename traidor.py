@@ -605,7 +605,7 @@ class Traidor:
               S.onMessage(msg)
               msg = S.ws.recv(2**16-1)
         except:
-          print 'exception connecting websocket "', url, '": ', sys.exc_info()[0], " will retry..."
+          print 'exception connecting websocket: ', sys.exc_info()[0], " will retry..."
           thread.sleep(3000)
           
       print 'websocket_thread() exit'
@@ -617,11 +617,7 @@ class Traidor:
       time.sleep(0.17)
       if S.should_request:
         timeout_secs = 15
-        import random
-        id = int(round(random.random()*1E3,3))
-        debug_print('calling timeout(request_orders()) id=%s...' % id)
         rc = timeout(S.request_orders, timeout_duration=timeout_secs)
-        debug_print('request_orders() id=%s done' % (id))
         if rc != None:
           S.should_request = False
           S.datalock.acquire()

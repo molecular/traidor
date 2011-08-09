@@ -13,15 +13,10 @@ def say(text):
 
 # align D number at decimal point
 def dec(dec, before, after):
-  rc = ''
-  if dec.as_tuple().exponent >= 0:
-    rc = "%i.0" % int(dec)
-    rc = "%*s" % (before+1-len(rc), rc)
-  else:
-    rc = str(dec.normalize())
-  #print dec, rc
+  rc = dec.normalize().to_eng_string()
   if rc.find('.') >= 0:
     rc = "%*s" % (before-rc.find('.')+len(rc), rc)
+  else: rc = "%*s" % (before, rc)
   rc += '                          '[:(after+before+1)-len(rc)]
   rc = rc[:(before+after+1)]
   return rc # rc.replace('0.', 'o.').replace('.0', '.o')

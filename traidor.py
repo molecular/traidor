@@ -52,7 +52,6 @@ class Traidor:
     S.auto_update_trade = True
     S.depth_invalid_counter = 0
 #    S.connection = httplib2.HTTPSConnectionWithTimeout("mtgox.com:443", strict=False, timeout=10)
-    S.display_height=15
     S.orders = {'btcs': -1, 'usds': -1}
     S.trades = []
 
@@ -74,6 +73,7 @@ class Traidor:
     S.debug = parser.getboolean('main', 'debug')
     S.eval_base_btc = D(parser.get('monetary','evaluation_base_btc'))
     S.eval_base_usd = D(parser.get('monetary','evaluation_base_usd'))
+    S.display_height = int(parser.get('main','initial_depth_display_height'))
     S.bots = list()
 
     t = Thread(target = S)
@@ -598,11 +598,16 @@ class Traidor:
       print 'websocket_thread() started'
       while S.run:
         print 'connecting websocket'
-        S.ws = WebSocket('ws://websocket.mtgox.com/mtgox', version=6)
-        msg = S.ws.recv(2**16-1)
-        while msg is not None and S.run:
-            S.onMessage(msg)
-            msg = S.ws.recv(2**16-1)
+        try:
+          S.ws = WebSocket('ws://websocket.mtgox.com/mtgox', version=6)
+          msg = S.ws.recv(2**16-1)
+          while msg is not None and S.run:
+              S.onMessage(msg)
+              msg = S.ws.recv(2**16-1)
+        except:
+          print 'exception connecting websocket "', url, '": ', sys.exc_info()[0], " will retry..."
+          thread.sleep(3000)
+          
       print 'websocket_thread() exit'
 
   def request_thread(S):

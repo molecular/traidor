@@ -4,6 +4,7 @@ use_websockets=true
 debug_websockets=false
 debug=true
 debug_request_timing=false
+initial_depth_display_height=15
 
 [mtgox]
 account_name: change_to_your_mtgox_account_name

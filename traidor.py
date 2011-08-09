@@ -540,62 +540,65 @@ class Traidor:
 
   def cmd(S, cmd, is_bot=False):
     global PRICE_PREC
-    if (cmd.rfind(';') >= 0):
-      for c in cmd.split(';'): S.cmd(c.strip())
-    else:
-      if cmd[:3] == 'dws': S.debug_ws = not S.debug_ws; print 'debug_ws=', S.debug_ws
-      elif cmd[:4] == 'eval': 
-        S.auto_update_depth = False
-        base = D(cmd[4:])
-        print 'evaluation based on %s BTC: %s USD' % (base.quantize(USD_PREC), S.eval(base).quantize(USD_PREC))
-      elif cmd[:2] == 'ps': pygame.mixer.Sound(cmd[3:]).play()
-      elif cmd[:3] == 'ws': S.use_ws = not S.use_ws; print 'use_ws=', S.use_ws
-      elif cmd[:2] == 'lb': 
-        i=0
-        for bot in S.bots: 
-          print "[%2i]: %s" % (i, bot.getName())
-          i += 1
-      elif cmd[:2] == 'tb': # TriggerBot
-        S.addBot(TriggerBot(t, cmd[2:]))
-      elif cmd[:2] == 'wx' or cmd[:3] == 'gui':
-        wx = TraidorApp(t)
-        S.addBot(wx)
-        wx.initialize()
-      elif cmd[0] == 'q': 
-        S.run = False
-        S.t_websocket.join(timeout=1)
-      elif cmd[0] == 'h': 
-        S.auto_update_depth = False
-        S.show_help()
-      elif cmd[0] == 'b' or cmd[0] == 's': 
-        S.auto_update_depth = False
-        S.trade(cmd, is_bot)
-      elif cmd[0] == 'c': 
-        S.auto_update_depth = False
-        S.cancel_order(cmd); S.show_orders()
-      elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth; print 'auto_update_depth = ', S.auto_update_depth
-      elif cmd[0] == 'r': S.reload = True;
-      elif cmd[0] == 'o': 
-        S.auto_update_depth = False
-        rc = S.request_orders(); 
-        S.datalock.acquire()
-        S.orders = rc
-        S.datalock.release()
-        S.show_orders()
-      elif cmd[0] == 'e': S.show_depth()
-      #elif cmd[0] == 't': 
-      #  for x in S.ticker: print x
-      #  print S.ticker
-      elif cmd[0] == 'd': 
-        S.displaylock.acquire()
-        S.display_height = int(cmd[1:])
-        S.displaylock.release()
-      elif cmd[0] == 'p': 
-        p = int(cmd[1:])
-        try:
-          if p<1 or p>5: print 'precision must be 2..5'
-          else: PRICE_PREC = D(10) ** -p; S.reload = True
-        except: print 'exception parsing precision value: %s' % p
+    try:
+      if (cmd.rfind(';') >= 0):
+        for c in cmd.split(';'): S.cmd(c.strip())
+      else:
+        if cmd[:3] == 'dws': S.debug_ws = not S.debug_ws; print 'debug_ws=', S.debug_ws
+        elif cmd[:4] == 'eval': 
+          S.auto_update_depth = False
+          base = D(cmd[4:])
+          print 'evaluation based on %s BTC: %s USD' % (base.quantize(USD_PREC), S.eval(base).quantize(USD_PREC))
+        elif cmd[:2] == 'ps': pygame.mixer.Sound(cmd[3:]).play()
+        elif cmd[:3] == 'ws': S.use_ws = not S.use_ws; print 'use_ws=', S.use_ws
+        elif cmd[:2] == 'lb': 
+          i=0
+          for bot in S.bots: 
+            print "[%2i]: %s" % (i, bot.getName())
+            i += 1
+        elif cmd[:2] == 'tb': # TriggerBot
+          S.addBot(TriggerBot(t, cmd[2:]))
+        elif cmd[:2] == 'wx' or cmd[:3] == 'gui':
+          wx = TraidorApp(t)
+          S.addBot(wx)
+          wx.initialize()
+        elif cmd[0] == 'q': 
+          S.run = False
+          S.t_websocket.join(timeout=1)
+        elif cmd[0] == 'h': 
+          S.auto_update_depth = False
+          S.show_help()
+        elif cmd[0] == 'b' or cmd[0] == 's': 
+          S.auto_update_depth = False
+          S.trade(cmd, is_bot)
+        elif cmd[0] == 'c': 
+          S.auto_update_depth = False
+          S.cancel_order(cmd); S.show_orders()
+        elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth; print 'auto_update_depth = ', S.auto_update_depth
+        elif cmd[0] == 'r': S.reload = True;
+        elif cmd[0] == 'o': 
+          S.auto_update_depth = False
+          rc = S.request_orders(); 
+          S.datalock.acquire()
+          S.orders = rc
+          S.datalock.release()
+          S.show_orders()
+        elif cmd[0] == 'e': S.show_depth()
+        #elif cmd[0] == 't': 
+        #  for x in S.ticker: print x
+        #  print S.ticker
+        elif cmd[0] == 'd': 
+          S.displaylock.acquire()
+          S.display_height = int(cmd[1:])
+          S.displaylock.release()
+        elif cmd[0] == 'p': 
+          p = int(cmd[1:])
+          try:
+            if p<1 or p>5: print 'precision must be 2..5'
+            else: PRICE_PREC = D(10) ** -p; S.reload = True
+          except: print 'exception parsing precision value: %s' % p
+    except:
+      print 'error parsing cmd: ' + sys.exc_info()[0] + ', ignoring.'
 
   def websocket_thread(S):
     if S.use_ws:

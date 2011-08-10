@@ -11,5 +11,7 @@
   
   * GamblingPurveyor: "Also, the program should check the $LINES and $COLUMNS environment variables every time it updates the screen, instead of having to set it manually with the [i]d[/i] menu option."
   
-  * cmd "history" to download mtgox trading history and display it
+  * cmd "[hi]story" to download mtgox trading history and display it
+  
+  * after switching precision, display is still wrongly showing own orders (when data still not loaded), so lock display or something
   

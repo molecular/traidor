@@ -75,6 +75,8 @@ class Traidor:
     S.eval_base_btc = D(parser.get('monetary','evaluation_base_btc'))
     S.eval_base_usd = D(parser.get('monetary','evaluation_base_usd'))
     S.display_height = int(parser.get('main','initial_depth_display_height'))
+    #lines = os.environ['LINES']
+    #print "lines: ", lines
     S.bots = list()
 
     t = Thread(target = S)

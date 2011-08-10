@@ -304,7 +304,6 @@ class Traidor:
   def show_orders(S):
     S.datalock.acquire()
     S.displaylock.acquire()
-    #print S.orders
     print "\n"
     i = 0
     print "[IDX] {                id                  } | typ    volume   price    - status"
@@ -312,13 +311,12 @@ class Traidor:
     type = -1
     for o in sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True):
       #print "{%s}: %s %s" % (o['oid'], o['amount'], o['price'])
-      if abs(S.last_price - o['price']) < D('10'):
-        if o['type'] == 2 and type == 'ask' and len(S.orders['orders']) > 2: print "                                             |"
-        type = o['type']
-        if type==1: type = 'ask'
-        elif type==2: type = 'bid'
-        else: type = 'unknown'
-        print "[%3i] {%s} | %s %s %s - %i %s" % (i, o['oid'], type, dec(o['amount'], 4, 5), dec(o['price'], 3, 5), o['status'], o['real_status'])
+      if o['type'] == 2 and type == 'ask' and len(S.orders['orders']) > 2: print "                                             |"
+      type = o['type']
+      if type==1: type = 'ask'
+      elif type==2: type = 'bid'
+      else: type = 'unknown'
+      print "[%3i] {%s} | %s %s %s - %i %s" % (i, o['oid'], type, dec(o['amount'], 4, 5), dec(o['price'], 3, 5), o['status'], o['real_status'])
       i += 1
     S.displaylock.release()
     S.datalock.release()

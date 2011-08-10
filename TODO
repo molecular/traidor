@@ -42,3 +42,5 @@
   
   * try "p1": the asks or bids might end earlier than their respective counterpart. display some "          " instead of letting trades bleed in
   
+  * GamblingPurveyor: "Also, the program should check the $LINES and $COLUMNS environment variables every time it updates the screen, instead of having to set it manually with the [i]d[/i] menu option."
+  

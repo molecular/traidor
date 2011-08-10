@@ -12,6 +12,7 @@ DEPENDENCIES (likely incomplete)
 --------------------------------
 
  * simplejson
+ * pygame (four sound)
 
 LICENSE
 -------
@@ -32,6 +33,6 @@ INITIALIZED | 0.0033 dmz | 4.00 BTC, 16.80 USD | [h]elp #> h
 THANKS
 ------
 
-  to at least 3 people I forgot the aliases of for testing and suggestions
-  to Geil for his websocket implementation
+* to at least 3 people I forgot the aliases of for testing and suggestions
+* to Giel for his websocket implementation
 

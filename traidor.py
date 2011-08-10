@@ -482,14 +482,29 @@ class Traidor:
   def cancel_order(S, key):
     p = key.split(' ')
     print p
+    
+    # collect list of oids
     S.datalock.acquire()
+    to_cancel = list()
     for idx in p[1:]:
       index = int(idx)
-      o = sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True)[index]
+      to_cancel.append(sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True)[index])
+
+    S.displaylock.acquire()
+    all_yes = False
+    for o in to_cancel:
+      #o = sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True)[index]
       #key = raw_input("\ncancel order oid={%s} [y]es [n]o #> " % (o['oid']))
-      key = raw_input("\ncancel order {%s} | %s for %s ? [y]es [n]o #>  " % (o['oid'], o['amount'], o['price']))
-      if key[0] == 'y':
-        S.do_cancel_order(o['oid'])
+      if not all_yes:
+        type = o['type']
+        if type==1: type = 'sell'
+        elif type==2: type = 'buy'
+        key = raw_input("\ncancel order {%s} | %s %s for %s ? [y]es [n]o [a]ll [c]ancel #>  " % (o['oid'], type, o['amount'], o['price']))
+        if key[0] == 'a': all_yes = True
+        elif key[0] == 'c': pass
+      if all_yes or key[0] == 'y': S.do_cancel_order(o['oid'])
+        
+    S.displaylock.release()
     S.datalock.release()
     
   def eval(S, base):
@@ -526,7 +541,7 @@ class Traidor:
     else: ratio = -1
     #return "\n%s | span %.4f | %.2f BTC, %.2f USD | %.2f #> " % (infoline, S.dmz_width, S.getBTC(), S.orders['usds'], ratio)
     rc = "\n%s | %s BTC | %s USD" % (infoline, S.getBTC(), S.getUSD() )
-    if S.eval_base_btc > 0: rc += " | eval(%s BTC) = %s USD" % (S.eval_base_btc, (S.eval(S.eval_base_btc) - S.eval_base_usd).quantize(D('0.01')))
+    if S.eval_base_btc > 0 and S.last_price != 0: rc += " | eval(%s BTC) = %s USD" % (S.eval_base_btc, (S.eval(S.eval_base_btc) - S.eval_base_usd).quantize(D('0.01')))
     rc += " | [h]elp #> "
     return rc
 
@@ -538,65 +553,62 @@ class Traidor:
 
   def cmd(S, cmd, is_bot=False):
     global PRICE_PREC
-    try:
-      if (cmd.rfind(';') >= 0):
-        for c in cmd.split(';'): S.cmd(c.strip())
-      else:
-        if cmd[:3] == 'dws': S.debug_ws = not S.debug_ws; print 'debug_ws=', S.debug_ws
-        elif cmd[:4] == 'eval': 
-          S.auto_update_depth = False
-          base = D(cmd[4:])
-          print 'evaluation based on %s BTC: %s USD' % (base.quantize(USD_PREC), S.eval(base).quantize(USD_PREC))
-        elif cmd[:2] == 'ps': pygame.mixer.Sound(cmd[3:]).play()
-        elif cmd[:3] == 'ws': S.use_ws = not S.use_ws; print 'use_ws=', S.use_ws
-        elif cmd[:2] == 'lb': 
-          i=0
-          for bot in S.bots: 
-            print "[%2i]: %s" % (i, bot.getName())
-            i += 1
-        elif cmd[:2] == 'tb': # TriggerBot
-          S.addBot(TriggerBot(t, cmd[2:]))
-        elif cmd[:2] == 'wx' or cmd[:3] == 'gui':
-          wx = TraidorApp(t)
-          S.addBot(wx)
-          wx.initialize()
-        elif cmd[0] == 'q': 
-          S.run = False
-          S.t_websocket.join(timeout=1)
-        elif cmd[0] == 'h': 
-          S.auto_update_depth = False
-          S.show_help()
-        elif cmd[0] == 'b' or cmd[0] == 's': 
-          S.auto_update_depth = False
-          S.trade(cmd, is_bot)
-        elif cmd[0] == 'c': 
-          S.auto_update_depth = False
-          S.cancel_order(cmd); S.show_orders()
-        elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth; print 'auto_update_depth = ', S.auto_update_depth
-        elif cmd[0] == 'r': S.reload = True;
-        elif cmd[0] == 'o': 
-          S.auto_update_depth = False
-          rc = S.request_orders(); 
-          S.datalock.acquire()
-          S.orders = rc
-          S.datalock.release()
-          S.show_orders()
-        elif cmd[0] == 'e': S.show_depth()
-        #elif cmd[0] == 't': 
-        #  for x in S.ticker: print x
-        #  print S.ticker
-        elif cmd[0] == 'd': 
-          S.displaylock.acquire()
-          S.display_height = int(cmd[1:])
-          S.displaylock.release()
-        elif cmd[0] == 'p': 
-          p = int(cmd[1:])
-          try:
-            if p<1 or p>5: print 'precision must be 2..5'
-            else: PRICE_PREC = D(10) ** -p; S.reload = True
-          except: print 'exception parsing precision value: %s' % p
-    except:
-      print 'error parsing cmd: ' + sys.exc_info()[0] + ', ignoring.'
+    if (cmd.rfind(';') >= 0):
+      for c in cmd.split(';'): S.cmd(c.strip())
+    else:
+      if cmd[:3] == 'dws': S.debug_ws = not S.debug_ws; print 'debug_ws=', S.debug_ws
+      elif cmd[:4] == 'eval': 
+        S.auto_update_depth = False
+        base = D(cmd[4:])
+        print 'evaluation based on %s BTC: %s USD' % (base.quantize(USD_PREC), S.eval(base).quantize(USD_PREC))
+      elif cmd[:2] == 'ps': pygame.mixer.Sound(cmd[3:]).play()
+      elif cmd[:3] == 'ws': S.use_ws = not S.use_ws; print 'use_ws=', S.use_ws
+      elif cmd[:2] == 'lb': 
+        i=0
+        for bot in S.bots: 
+          print "[%2i]: %s" % (i, bot.getName())
+          i += 1
+      elif cmd[:2] == 'tb': # TriggerBot
+        S.addBot(TriggerBot(t, cmd[2:]))
+      elif cmd[:2] == 'wx' or cmd[:3] == 'gui':
+        wx = TraidorApp(t)
+        S.addBot(wx)
+        wx.initialize()
+      elif cmd[0] == 'q': 
+        S.run = False
+        S.t_websocket.join(timeout=1)
+      elif cmd[0] == 'h': 
+        S.auto_update_depth = False
+        S.show_help()
+      elif cmd[0] == 'b' or cmd[0] == 's': 
+        S.auto_update_depth = False
+        S.trade(cmd, is_bot)
+      elif cmd[0] == 'c': 
+        S.auto_update_depth = False
+        S.cancel_order(cmd); S.show_orders()
+      elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth; print 'auto_update_depth = ', S.auto_update_depth
+      elif cmd[0] == 'r': S.reload = True;
+      elif cmd[0] == 'o': 
+        S.auto_update_depth = False
+        rc = S.request_orders(); 
+        S.datalock.acquire()
+        S.orders = rc
+        S.datalock.release()
+        S.show_orders()
+      elif cmd[0] == 'e': S.show_depth()
+      #elif cmd[0] == 't': 
+      #  for x in S.ticker: print x
+      #  print S.ticker
+      elif cmd[0] == 'd': 
+        S.displaylock.acquire()
+        S.display_height = int(cmd[1:])
+        S.displaylock.release()
+      elif cmd[0] == 'p': 
+        p = int(cmd[1:])
+        try:
+          if p<1 or p>5: print 'precision must be 2..5'
+          else: PRICE_PREC = D(10) ** -p; S.reload = True
+        except: print 'exception parsing precision value: %s' % p
 
   def websocket_thread(S):
     if S.use_ws:

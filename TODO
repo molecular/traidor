@@ -1,46 +1,15 @@
-
-  * handle disconnects / connection resets / ..., example:
-       Traceback (most recent call last):
-      File "/usr/lib/python2.6/threading.py", line 532, in __bootstrap_inner
-        self.run()
-      File "/mnt/nick/nix/data/bitcoin/bin/traidor/pywsc/receiver.py", line 41, in run
-      File "traidor.py", line 161, in onMessage
-        S.request_orders()
-      File "traidor.py", line 282, in request_orders
-        S.orders = S.request_json_authed('/code/getOrders.php')
-      File "traidor.py", line 258, in request_json_authed
-        return S.request_json(url, params)
-      File "traidor.py", line 250, in request_json
-        response = urllib2.urlopen(req)
-      File "/usr/lib/python2.6/urllib2.py", line 126, in urlopen
-        return _opener.open(url, data, timeout)
-      File "/usr/lib/python2.6/urllib2.py", line 391, in open
-        response = self._open(req, data)
-      File "/usr/lib/python2.6/urllib2.py", line 409, in _open
-        '_open', req)
-      File "/usr/lib/python2.6/urllib2.py", line 369, in _call_chain
-        result = func(*args)
-      File "/usr/lib/python2.6/urllib2.py", line 1178, in https_open
-        return self.do_open(httplib.HTTPSConnection, req)
-      File "/usr/lib/python2.6/urllib2.py", line 1145, in do_open
-        raise URLError(err)
-    URLError: <urlopen error [Errno 104] Connection reset by peer>
     
   * use readline for command entry? something with a history that is not affected by output. output-paging?
   
   * theres supposed to be a private websocket channel that informs when orders get filled. use it.
   
-  * #S.request_orders() # hmmmgrl, really? <- removed. replace info that bots need somehow (basically the info is the balances)
-  
-  * cancel_order(): collect order ids first then cancel them, otherwise a request_order from other thread will fuck things up
-  
   * show_depth(): dislay "own volume" only if on correct side (ask/bid), otherwise pending order might be displayed as bid instead of ask or vice versa
-  
-  * somehow quit cleanly on "q"
   
   * load trading fee from getInfo(), not configfile
   
   * try "p1": the asks or bids might end earlier than their respective counterpart. display some "          " instead of letting trades bleed in
   
   * GamblingPurveyor: "Also, the program should check the $LINES and $COLUMNS environment variables every time it updates the screen, instead of having to set it manually with the [i]d[/i] menu option."
+  
+  * cmd "history" to download mtgox trading history and display it
   

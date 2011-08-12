@@ -481,7 +481,7 @@ class Traidor:
       print 'ABORTED'
       return None
           
-  def cancel_order(S, key):
+  def cancel_order(S, key, is_bot):
     p = key.split(' ')
     print p
     
@@ -493,7 +493,7 @@ class Traidor:
       to_cancel.append(sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True)[index])
 
     S.displaylock.acquire()
-    all_yes = False
+    all_yes = is_bot
     for o in to_cancel:
       #o = sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True)[index]
       #key = raw_input("\ncancel order oid={%s} [y]es [n]o #> " % (o['oid']))
@@ -587,7 +587,8 @@ class Traidor:
         S.trade(cmd, is_bot)
       elif cmd[0] == 'c': 
         S.auto_update_depth = False
-        S.cancel_order(cmd); S.show_orders()
+        S.cancel_order(cmd, is_bot); 
+        S.show_orders()
       elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth; print 'auto_update_depth = ', S.auto_update_depth
       elif cmd[0] == 'r': S.reload = True;
       elif cmd[0] == 'o': 

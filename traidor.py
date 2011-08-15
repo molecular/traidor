@@ -18,7 +18,7 @@ from websocket import WebSocket
 
 from common import *
 from bot import *
-from wxgui import *
+#from wxgui import *
 #from img import *
 
 PRICE_PREC = D('0.00001')

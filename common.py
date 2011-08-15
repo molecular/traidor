@@ -1,6 +1,7 @@
 from decimal import Decimal as D
 import time
 
+
 __all__ = ["D", "dec", "say", "debug_print", "timeout", "BTC_PREC", "USD_PREC"]
 
 BTC_PREC = D('0.00000001')
@@ -47,3 +48,4 @@ def timeout(func, args=(), kwargs={}, timeout_duration=1, default=None):
     return default
   else:
     return it.result
+

@@ -23,7 +23,6 @@ from mtgox import *
 class Traidor:
   def __init__(S):
     S.displaylock = Lock()
-    S.order_distance = D('0.00001')
     S.auto_update_trade = True
     S.auto_update_depth = True
 
@@ -98,13 +97,11 @@ class Traidor:
     if (cmd.rfind(';') >= 0):
       for c in cmd.split(';'): S.cmd(c.strip())
     else:
-      if cmd[:3] == 'dws': S.debug_ws = not S.debug_ws; print 'debug_ws=', S.debug_ws
-      elif cmd[:4] == 'eval': 
+      if cmd[:4] == 'eval': 
         S.auto_update_depth = False
         base = D(cmd[4:])
         print 'evaluation based on %s BTC: %s USD' % (base.quantize(USD_PREC), S.eval(base).quantize(USD_PREC))
       elif cmd[:2] == 'ps': pygame.mixer.Sound(cmd[3:]).play()
-      elif cmd[:3] == 'ws': S.use_ws = not S.use_ws; print 'use_ws=', S.use_ws
       elif cmd[:2] == 'lb': 
         i=0
         for bot in S.bots: 
@@ -121,22 +118,8 @@ class Traidor:
       elif cmd[0] == 'h': 
         S.traidr.auto_update_depth = False
         S.show_help()
-      elif cmd[0] == 'b' or cmd[0] == 's': 
-        S.auto_update_depth = False
-        S.exchange.trade(cmd, is_bot)
-      elif cmd[0] == 'c': 
-        S.auto_update_depth = False
-        S.exchange.cancel_order(cmd, is_bot); 
-        S.exchange.show_orders()
       elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth; print 'auto_update_depth = ', S.auto_update_depth
       elif cmd[0] == 'r': S.reload = True;
-      elif cmd[0] == 'o': 
-        S.auto_update_depth = False
-        rc = S.request_orders(); 
-        S.datalock.acquire()
-        S.orders = rc
-        S.datalock.release()
-        S.show_orders()
       elif cmd[0] == 'e': S.show_depth()
       #elif cmd[0] == 't': 
       #  for x in S.ticker: print x
@@ -151,6 +134,8 @@ class Traidor:
           if p<1 or p>5: print 'precision must be 2..5'
           else: PRICE_PREC = D(10) ** -p; S.reload = True
         except: print 'exception parsing precision value: %s' % p
+      else:
+        S.exchange.cmd(cmd, is_bot);
 
   def __call__(S): # mainloop
     global PRICE_PREC

@@ -1,16 +1,17 @@
 [main]
-donated=false
-use_websockets=true
-debug_websockets=false
+donated=true
 debug=true
-debug_request_timing=false
-initial_depth_display_height=15
+initial_depth_display_height=20
 
 [mtgox]
-account_name: change_to_your_mtgox_account_name
-account_pass: change_to_your_mtgox_account_pass
-trading_fee: 0.0065
+account_name=<your mtgox user>
+account_pass=<your mtgox pass>
+debug=true
+use_websockets=true
+debug_websockets=false
+debug_request_timing=true
+trading_fee=0.003
 
 [monetary]
-evaluation_base_btc=0
-evaluation_base_usd=0
+evaluation_base_btc=150
+evaluation_base_usd=1367

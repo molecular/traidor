@@ -620,10 +620,10 @@ class Traidor:
         print 'connecting websocket'
         try:
           S.ws = WebSocket('ws://websocket.mtgox.com/mtgox', version=6)
-          msg = S.ws.recv(2**16-1)
+          msg = S.ws.recv()
           while msg is not None and S.run:
               S.onMessage(msg)
-              msg = S.ws.recv(2**16-1)
+              msg = S.ws.recv()
         except:
           print 'exception connecting websocket: ', sys.exc_info()[0], " will retry..."
           time.sleep(3)

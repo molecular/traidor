@@ -2,10 +2,23 @@ from decimal import Decimal as D
 import time
 
 
-__all__ = ["D", "dec", "say", "debug_print", "timeout", "BTC_PREC", "USD_PREC"]
+__all__ = ["D", "Trade", "dec", "say", "debug_print", "timeout", "BTC_PREC", "USD_PREC", "PRICE_PREC", "VOL_PREC", "VOL2_PREC", "MYVOL_PREC"]
 
 BTC_PREC = D('0.00000001')
 USD_PREC = D('0.00001')
+
+PRICE_PREC = D('0.00001')
+VOL_PREC = D('0.1')
+VOL2_PREC = D('0')
+MYVOL_PREC = D('0.01')
+
+# class Trade
+class Trade:
+  def __init__(S, time, amount, price, type):
+    (S.time, S.amount, S.price, S.type) = (time, D(amount), D(price), type)
+    
+  def str(S):
+    "{%s} | %s for %s - %i %s" % (S['oid'], o['amount'], o['price'], o['status'], o['real_status'])
 
 # talking
 def say(text):

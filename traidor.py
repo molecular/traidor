@@ -15,35 +15,17 @@ from threading import *
 
 from common import *
 from bot import *
-from wxgui import *
+#from wxgui import *
 #from img import *
 
 from mtgox import *
 
-PRICE_PREC = D('0.00001')
-VOL_PREC = D('0.1')
-VOL2_PREC = D('0')
-MYVOL_PREC = D('0.01')
-
-
-class Trade:
-  def __init__(S, time, amount, price, type):
-    (S.time, S.amount, S.price, S.type) = (time, D(amount), D(price), type)
-    
-  def str(S):
-    "{%s} | %s for %s - %i %s" % (S['oid'], o['amount'], o['price'], o['status'], o['real_status'])
-
 class Traidor:
   def __init__(S):
-    S.datalock = Lock()
     S.displaylock = Lock()
     S.order_distance = D('0.00001')
     S.auto_update_trade = True
-
-    S.do_img = False
-    if S.do_img:
-      S.img = Img(1280,720)
-      S.img.set_bar(0,0.3,0.1)
+    S.auto_update_depth = True
 
     # parse configfile
     parser = SafeConfigParser()
@@ -80,16 +62,7 @@ class Traidor:
   def removeBot(S, bot):
     S.bots.remove(bot)
 
-
-
   # --- json stuff ----------------------------------------------------------------------------------------------------------------------
-  
-
-    
-  def eval(S, base):
-    delta = S.getBTC() - base
-    corrected_usd = S.getUSD() + (S.last_price * delta * (D('1.0') - S.trading_fee))
-    return corrected_usd
 
   # --- preliminary bot stuff (highly experimental, will be abstracted) -------------------------------
 
@@ -116,7 +89,7 @@ class Traidor:
 "
   def prompt(S):
     S.displaylock.acquire()
-    sys.stdout.write(S.exchange.getPrompt(infoline))
+    sys.stdout.write(S.exchange.getPrompt())
     sys.stdout.flush()
     S.displaylock.release()
 
@@ -146,15 +119,15 @@ class Traidor:
       elif cmd[0] == 'q': 
         S.run = False
       elif cmd[0] == 'h': 
-        S.auto_update_depth = False
+        S.traidr.auto_update_depth = False
         S.show_help()
       elif cmd[0] == 'b' or cmd[0] == 's': 
         S.auto_update_depth = False
-        S.trade(cmd, is_bot)
+        S.exchange.trade(cmd, is_bot)
       elif cmd[0] == 'c': 
         S.auto_update_depth = False
-        S.cancel_order(cmd, is_bot); 
-        S.show_orders()
+        S.exchange.cancel_order(cmd, is_bot); 
+        S.exchange.show_orders()
       elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth; print 'auto_update_depth = ', S.auto_update_depth
       elif cmd[0] == 'r': S.reload = True;
       elif cmd[0] == 'o': 
@@ -178,23 +151,6 @@ class Traidor:
           if p<1 or p>5: print 'precision must be 2..5'
           else: PRICE_PREC = D(10) ** -p; S.reload = True
         except: print 'exception parsing precision value: %s' % p
-
-  def websocket_thread(S):
-    if S.use_ws:
-      print 'websocket_thread() started'
-      while S.run:
-        print 'connecting websocket'
-        try:
-          S.ws = WebSocket('ws://websocket.mtgox.com/mtgox', version=6)
-          msg = S.ws.recv(2**16-1)
-          while msg is not None and S.run:
-              S.onMessage(msg)
-              msg = S.ws.recv(2**16-1)
-        except:
-          print 'exception connecting websocket: ', sys.exc_info()[0], " will retry..."
-          time.sleep(3)
-          
-      print 'websocket_thread() exit'
 
   def __call__(S): # mainloop
     global PRICE_PREC
@@ -253,12 +209,12 @@ class Traidor:
 
     if S.debug: print 'stopping exchanges...'
     for x in S.exchanges:
-      x.start()
+      x.stop()
 
 
 pygame.init()
 t = Traidor()
-t.addBot(BeepBot(t))
+#t.addBot(BeepBot(t))
 
 #t.addBot(EquilibriumBot(t, D('0.0'), D('0'), D('3.0'), D('0.2'))) # btc add, usd add, fund_multiplier, desired_amount
 #t.cmd("tb >= 14.80 ps alarm.wav")

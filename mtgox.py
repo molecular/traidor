@@ -8,7 +8,6 @@ import subprocess
 import simplejson as json
 import urllib, urllib2 #, httplib2
 
-
 __all__ = ["MtGox"]
 
 def convert_certain_json_objects_to_decimal(dct):
@@ -78,15 +77,15 @@ class MtGox (Exchange):
       print 'websocket_thread() started'
       while S.run:
         print 'connecting websocket'
-        #try:
-        S.ws = WebSocket('ws://websocket.mtgox.com/mtgox', version=6)
-        msg = S.ws.recv()
-        while msg is not None and S.run:
-            S.onMessage(msg)
-            msg = S.ws.recv()
-        #except:
-        #  print 'exception connecting websocket: ', sys.exc_info()[0], " will retry..."
-        #  time.sleep(3)
+        try:
+          S.ws = WebSocket('ws://websocket.mtgox.com/mtgox', version=6)
+          msg = S.ws.recv()
+          while msg is not None and S.run:
+              S.onMessage(msg)
+              msg = S.ws.recv()
+        except:
+          print 'exception connecting websocket: ', sys.exc_info()[0], " will retry..."
+          time.sleep(3)
           
       print 'websocket_thread() exit'
 
@@ -239,6 +238,7 @@ class MtGox (Exchange):
     return rc
 
   def request_market(S):
+    global PRICE_PREC
     S.market = S.request_json('/api/0/data/getDepth.php')
     
     S.highest_bid = sorted(S.market['bids'], reverse=True)[0][0];
@@ -504,7 +504,15 @@ class MtGox (Exchange):
           debug_print('request_orders() timeout (%ss)' % timeout_secs)
           
     print 'request_thread() exit'
-          
+
+  def reload_depth(S):
+    #S.request_ticker()
+    if not S.use_ws: S.request_trades()
+    S.request_market() 
+    # trigger show_depth() thread
+    S.last_depth_update = time.time()
+    S.depth_invalid_counter += 1
+
   def cmd(S, cmd, is_bot=False):
     if (cmd.rfind(';') >= 0):
       for c in cmd.split(';'): S.cmd(c.strip())
@@ -526,6 +534,7 @@ class MtGox (Exchange):
         S.datalock.release()
         S.show_orders()
       elif cmd[0] == 'e': S.show_depth()
+      elif cmd[0] == 'r': S.reload_depth();
       #elif cmd[0] == 't': 
       #  for x in S.ticker: print x
       #  print S.ticker

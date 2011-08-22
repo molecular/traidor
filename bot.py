@@ -1,5 +1,3 @@
-#from traidor import Traidor
-import pygame
 from common import *
 from decimal import Decimal as D
 
@@ -19,6 +17,7 @@ class BeepBot(Bot):
   def __init__(S, exchange):
     Bot.__init__(S, exchange)
     S.last_price = S.x.last_price
+    S.traidor = S.x.traidor
     
   def initialize(S):
     pass
@@ -28,9 +27,9 @@ class BeepBot(Bot):
     
   def trade(S, trade):
     if ( S.x.last_price < S.last_price ):
-      S.x.cmd('ps click.wav')
+      S.traidor.cmd('ps click.wav')
     else:
-      S.x.cmd('ps click.wav')
+      S.traidor.cmd('ps click.wav')
     S.last_price = S.x.last_price
     
 class TriggerBot(Bot):

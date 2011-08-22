@@ -9,7 +9,11 @@ import time
 import subprocess
 from ConfigParser import SafeConfigParser
 #from pywsc.websocket import WebSocket
-import pygame
+try:
+  import pygame
+  pygame_enabled=True
+except:
+  pygame_enabled=False
 from contextlib import closing
 from threading import *
 
@@ -101,7 +105,7 @@ class Traidor:
         S.auto_update_depth = False
         base = D(cmd[4:])
         print 'evaluation based on %s BTC: %s USD' % (base.quantize(USD_PREC), S.eval(base).quantize(USD_PREC))
-      elif cmd[:2] == 'ps': pygame.mixer.Sound(cmd[3:]).play()
+      elif cmd[:2] == 'ps' and pygame_enabled: pygame.mixer.Sound(cmd[3:]).play()
       elif cmd[:2] == 'lb': 
         i=0
         for bot in S.bots: 
@@ -119,8 +123,6 @@ class Traidor:
         S.traidr.auto_update_depth = False
         S.show_help()
       elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth; print 'auto_update_depth = ', S.auto_update_depth
-      elif cmd[0] == 'r': S.reload = True;
-      elif cmd[0] == 'e': S.show_depth()
       #elif cmd[0] == 't': 
       #  for x in S.ticker: print x
       #  print S.ticker
@@ -132,15 +134,16 @@ class Traidor:
         p = int(cmd[1:])
         try:
           if p<1 or p>5: print 'precision must be 2..5'
-          else: PRICE_PREC = D(10) ** -p; S.reload = True
+          else: 
+            PRICE_PREC = D(10) ** -p; 
         except: print 'exception parsing precision value: %s' % p
+        S.exchange.reload_depth()
       else:
         S.exchange.cmd(cmd, is_bot);
 
   def __call__(S): # mainloop
     global PRICE_PREC
     S.run = True
-    S.reload = False
     
     # initial for bot, ned so wichtig auf dauer, kost zeit
     # abhilfe: unten bei initialize bots nen fake-trade reinschreiben
@@ -172,22 +175,14 @@ class Traidor:
       #      print 'connection problem, retrying later...'
       #      time.sleep(1);
             
-      if (S.reload): 
-        #S.request_ticker()
-        if not S.use_ws: S.request_trades()
-        S.request_market()
-        # trigger show_depth() thread
-        S.last_depth_update = time.time()
-        S.depth_invalid_counter += 1
         
       #S.print_stuff();
-      S.reload = False;
       key = raw_input(S.exchange.getPrompt());
       if (len(key) > 0):
         S.cmd(key)
       else: 
         #S.request_info();
-        S.show_depth();
+        S.exchange.show_depth();
       counter += 1
       if (counter % 31) == 13 and not S.donated:
         print '\n\n\n\n\nplease consider donating to 1Ct1vCN6idU1hKrRcmR96G4NgAgrswPiCn\n\n\n(to remove donation msg, put "donated=1" into configfile, section [main])\n'
@@ -199,7 +194,7 @@ class Traidor:
 
 pygame.init()
 t = Traidor()
-#t.addBot(BeepBot(t))
+t.addBot(BeepBot(t.exchange))
 
 #t.addBot(EquilibriumBot(t, D('0.0'), D('0'), D('3.0'), D('0.2'))) # btc add, usd add, fund_multiplier, desired_amount
 #t.cmd("tb >= 14.80 ps alarm.wav")

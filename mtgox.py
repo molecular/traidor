@@ -290,7 +290,8 @@ class MtGox (Exchange):
     type = -1
     for o in sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True):
       #print "{%s}: %s %s" % (o['oid'], o['amount'], o['price'])
-      #if o['type'] == 2 and type == 'ask' and len(S.orders['orders']) > 2: print "                                             |"
+      if o['type'] == 2 and type == 'ask' and len(S.orders['orders']) > 2: print "                                             |"
+      #print o
       type = o['type']
       if type==1: type = 'ask'
       elif type==2: type = 'bid'

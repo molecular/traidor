@@ -13,5 +13,5 @@ debug_request_timing=true
 trading_fee=0.003
 
 [monetary]
-evaluation_base_btc=150
-evaluation_base_usd=1367
+evaluation_base_btc=0
+evaluation_base_usd=0

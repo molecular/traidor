@@ -18,6 +18,7 @@ class Bot:
 class BeepBot(Bot):
   def __init__(S, exchange):
     Bot.__init__(S, exchange)
+    S.last_price = S.x.last_price
     
   def initialize(S):
     pass
@@ -26,8 +27,11 @@ class BeepBot(Bot):
     return 'BeepBot'
     
   def trade(S, trade):
-    S.x.cmd('ps click.wav')
-    pass
+    if ( S.x.last_price < S.last_price ):
+      S.x.cmd('ps click.wav')
+    else:
+      S.x.cmd('ps click.wav')
+    S.last_price = S.x.last_price
     
 class TriggerBot(Bot):
   def __init__(S, exchange, trigger):

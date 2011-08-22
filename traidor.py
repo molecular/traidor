@@ -181,7 +181,7 @@ class Traidor:
 
     # depth: {u'volume': 7.7060600456200001, u'price': 6.4884000000000004, u'type': 1}
     if op == 'private' and channel == '24e67e0d-1cad-4cc0-9e7a-f8523ef460fe': 
-      #print m
+      #debug_print(m)
       depth_msg = m['depth']
       if depth_msg['currency'] == 'USD':
         type = depth_msg['type_str'] + 's'

@@ -105,7 +105,8 @@ class Traidor:
         S.auto_update_depth = False
         base = D(cmd[4:])
         print 'evaluation based on %s BTC: %s USD' % (base.quantize(USD_PREC), S.eval(base).quantize(USD_PREC))
-      elif cmd[:2] == 'ps' and pygame_enabled: pygame.mixer.Sound(cmd[3:]).play()
+      elif cmd[:2] == 'ps': 
+        if pygame_enabled: pygame.mixer.Sound(cmd[3:]).play()
       elif cmd[:2] == 'lb': 
         i=0
         for bot in S.bots: 
@@ -192,7 +193,7 @@ class Traidor:
       x.stop()
 
 
-pygame.init()
+if pygame_enabled: pygame.init()
 t = Traidor()
 t.addBot(BeepBot(t.exchange))
 

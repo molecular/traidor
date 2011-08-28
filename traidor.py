@@ -18,6 +18,7 @@ from contextlib import closing
 from threading import *
 
 from common import *
+import common
 from bot import *
 #from wxgui import *
 #from img import *
@@ -97,7 +98,6 @@ class Traidor:
     S.displaylock.release()
 
   def cmd(S, cmd, is_bot=False):
-    global PRICE_PREC
     if (cmd.rfind(';') >= 0):
       for c in cmd.split(';'): S.cmd(c.strip())
     else:
@@ -136,14 +136,13 @@ class Traidor:
         try:
           if p<1 or p>5: print 'precision must be 2..5'
           else: 
-            PRICE_PREC = D(10) ** -p; 
+            common.PRICE_PREC = D(10) ** -p; 
         except: print 'exception parsing precision value: %s' % p
         S.exchange.reload_depth()
       else:
         S.exchange.cmd(cmd, is_bot);
 
   def __call__(S): # mainloop
-    global PRICE_PREC
     S.run = True
     
     # initial for bot, ned so wichtig auf dauer, kost zeit

@@ -7,6 +7,7 @@ import time
 import subprocess
 import simplejson as json
 import urllib, urllib2 #, httplib2
+import common
 
 __all__ = ["MtGox"]
 
@@ -186,7 +187,7 @@ class MtGox (Exchange):
       depth_msg = m['depth']
       if depth_msg['currency'] == 'USD':
         type = depth_msg['type_str'] + 's'
-        price = D(depth_msg['price']).quantize(PRICE_PREC)
+        price = D(depth_msg['price']).quantize(common.PRICE_PREC)
         volume = D(depth_msg['volume']);
         if not S.depth[type].has_key(price): 
           S.depth[type][price] = D('0')
@@ -238,7 +239,6 @@ class MtGox (Exchange):
     return rc
 
   def request_market(S):
-    global PRICE_PREC
     S.market = S.request_json('/api/0/data/getDepth.php')
     
     S.highest_bid = sorted(S.market['bids'], reverse=True)[0][0];
@@ -253,7 +253,7 @@ class MtGox (Exchange):
     for kind in ('bids', 'asks'):
       S.depth[kind] = {}
       for o in S.market[kind]:
-        price = o[0].quantize(PRICE_PREC)
+        price = o[0].quantize(common.PRICE_PREC)
         if not S.depth[kind].has_key(price): S.depth[kind][price] = D(0)
         S.depth[kind][price] += o[1]
     S.depth_invalid_counter += 1
@@ -372,7 +372,7 @@ class MtGox (Exchange):
           str = "%s %s %5s" % (dec(price, 3, 5), dec(vol, 4, 1), akku.quantize(VOL2_PREC))  
           my_vol = D(0)
           for my_order in my_orders:
-            if my_order['price'].quantize(PRICE_PREC) == price.quantize(PRICE_PREC): 
+            if my_order['price'].quantize(common.PRICE_PREC) == price.quantize(common.PRICE_PREC): 
               my_vol += my_order['amount']
           if (my_vol > 0): str = '%6s %s' % (my_vol.quantize(MYVOL_PREC),str)
           else: str = '       ' + str
@@ -389,7 +389,7 @@ class MtGox (Exchange):
           str = "%-5s %s %s" % (akku.quantize(VOL2_PREC), dec(vol, 4, 1), dec(price, 3, 5))
           my_vol = D(0)
           for my_order in my_orders:
-            if my_order['price'].quantize(PRICE_PREC) == price.quantize(PRICE_PREC): 
+            if my_order['price'].quantize(common.PRICE_PREC) == price.quantize(common.PRICE_PREC): 
               my_vol += my_order['amount']
           if (my_vol > 0): str = str + ' %-6s ' % my_vol.quantize(MYVOL_PREC)
           else: str += '        '

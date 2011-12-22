@@ -14,8 +14,11 @@ class SocketIO:
   def connect(S):
     data = urllib.urlencode({})
     req = urllib2.Request('https://' + S.url + "/1", data)
+    print 'https://' + S.url + "/1"
     response = urllib2.urlopen(req)
     r = response.read().split(':')
+    S.heartbeat_interval = int(r[1])
+    print 'heartbeat: ', S.heartbeat_interval
     if 'websocket' in r[3].split(','):
       print "good: transport 'websocket' supported by socket.io server ", S.url
       S.id = r[0]
@@ -24,6 +27,12 @@ class SocketIO:
     S.thread = Thread(target = S.thread_func)
     S.thread.setDaemon(True)
     S.thread.start()
+
+  def stop(S):
+    S.run = False
+    S.thread.join(timeout=1)
+    S.keepalive_thread.join(timeout=1)
+
 
   def thread_func(S):
     print 'SocketIO: websocket thread started'
@@ -41,18 +50,23 @@ class SocketIO:
     
     msg = S.ws.recv()
     while msg is not None and S.run:
-      #S.onMessage(msg)
       #print 'SocketIO msg: ', msg
-      if msg[:10] == "3::/mtgox:":
+      if msg[:10] == "4::/mtgox:":
         S.callback(msg[10:])
-      else:
-        print "dont know how to handle msg: ", msg
+      #elif msg[:3] == "2::":
+      #  True
+      #else:
+      #  print "SocketIO: dont know how to handle msg: ", msg
       msg = S.ws.recv()
       
   def keepalive_func(S):
     while S.run:
-      time.sleep(10)
-      S.ws.send('2::');
+      time.sleep(S.heartbeat_interval)
+      try:
+        S.ws.send('2::');
+      except:
+        print 'error sending keepalive socket.io, trying reconnect'
+        S.connect()
       
 def test_callback(msg):
   print 'msg: ', msg

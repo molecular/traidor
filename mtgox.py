@@ -8,6 +8,9 @@ import subprocess
 import simplejson as json
 import urllib, urllib2 #, httplib2
 import common
+from socketio import SocketIO
+
+# http://mtgox.com/api/1/BTCUSD/public/fulldepth
 
 __all__ = ["MtGox"]
 
@@ -65,13 +68,12 @@ class MtGox (Exchange):
 
     # start websocket_thread
     if S.use_ws:
-      S.t_websocket = Thread(target = S.websocket_thread)
-      S.t_websocket.setDaemon(True)
-      S.t_websocket.start()
+      S.sio = SocketIO('socketio.mtgox.com/socket.io', S.onMessage)
+      S.sio.connect()
 
   def stop(S):
     Exchange.stop(S)
-    S.t_websocket.join(timeout=1)
+    S.sio.stop()
 
   def websocket_thread(S):
     if S.use_ws:
@@ -79,14 +81,20 @@ class MtGox (Exchange):
       while S.run:
         print 'connecting websocket'
         try:
-          S.ws = WebSocket('ws://websocket.mtgox.com/mtgox', version=6)
-          msg = S.ws.recv()
-          while msg is not None and S.run:
-              S.onMessage(msg)
-              msg = S.ws.recv()
+          S.ws = WebSocket('wss://socketio.mtgox.com/socket.io/1/websocket/2086259808926456928', version=6) # ws://websocket.mtgox.com/mtgox
+          try:
+            msg = S.ws.recv()
+            while msg is not None and S.run:
+                S.onMessage(msg)
+                msg = S.ws.recv()
+                #debug_print("received ws msg")
+                #print("weboscket receiving")
+          except:
+            print 'exception receiving websocket'
         except:
           print 'exception connecting websocket: ', sys.exc_info()[0], " will retry..."
           time.sleep(3)
+        #time.sleep(0.1)
           
       print 'websocket_thread() exit'
 
@@ -153,10 +161,12 @@ class MtGox (Exchange):
 #    if channel == 'd5f06780-30a8-4a48-a2f8-7ed181b4a13f': # ticker
 #      print m
 
-    S.datalock.acquire()
     
     # trades
+    #if channel != '24e67e0d-1cad-4cc0-9e7a-f8523ef460fe': debug_print(m)
+    #debug_print(channel)
     if op == 'private' and channel == 'dbf1dee9-4f2e-4a08-8cb7-748919a71b21': 
+#      S.datalock.acquire()
       trade = m['trade']
       if (trade['type'] != 'trade'): print m
       #s = '%s: [trade %s]: %5.1f for %.4f' % (trade['date'], trade['tid'], float(trade['amount']), float(trade['price']))
@@ -169,23 +179,23 @@ class MtGox (Exchange):
       trade = Trade(trade['date'], trade['amount'], trade['price'], trade['trade_type'])
       S.trades.append(trade)
       update = False
-      S.last_depth_update = time.time()
+      #S.last_depth_update = time.time()
       S.depth_invalid_counter += 1
       #update = S.auto_update_depth
       
       # bots 
-      S.datalock.release()
+#      S.datalock.release()
       #S.orders = S.request_orders() # hmmmgrl, really? 
       S.last_price = trade.price
       for bot in S.traidor.bots:
         bot.trade(trade)
-      S.datalock.acquire()
 
     # depth: {u'volume': 7.7060600456200001, u'price': 6.4884000000000004, u'type': 1}
     if op == 'private' and channel == '24e67e0d-1cad-4cc0-9e7a-f8523ef460fe': 
       #print m
       depth_msg = m['depth']
       if depth_msg['currency'] == 'USD':
+        S.datalock.acquire()
         type = depth_msg['type_str'] + 's'
         price = D(depth_msg['price']).quantize(common.PRICE_PREC)
         volume = D(depth_msg['volume']);
@@ -200,13 +210,15 @@ class MtGox (Exchange):
         S.depth_invalid_counter += 1
 
         S.traidor.cmd('ps gligg.wav')
-        time.sleep(0.05)
+        time.sleep(0.01)
         
-    S.datalock.release()
+        S.datalock.release()
+      else:
+        print depth_msg['currency']
     
-    if update:
-      S.show_depth()
-      S.traidor.prompt()
+    #if update:
+    #  S.show_depth()
+    #  S.traidor.prompt()
         
   def onClose(S):
     print "websocket closed"
@@ -347,7 +359,8 @@ class MtGox (Exchange):
           #if info_counter % 10 == 0: 
           #  S.request_info()
           #S.request_orders()
-          S.should_request = True
+          
+          #S.should_request = True
           S.traidor.prompt()    
     print 'show_depth()-thread exit'
     
@@ -493,7 +506,7 @@ class MtGox (Exchange):
     while S.run:
       time.sleep(0.17)
       if S.should_request:
-        timeout_secs = 15
+        timeout_secs = 25
         rc = timeout(S.request_orders, timeout_duration=timeout_secs)
         if rc != None:
           S.should_request = False

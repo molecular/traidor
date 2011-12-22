@@ -75,29 +75,6 @@ class MtGox (Exchange):
     Exchange.stop(S)
     S.sio.stop()
 
-  def websocket_thread(S):
-    if S.use_ws:
-      print 'websocket_thread() started'
-      while S.run:
-        print 'connecting websocket'
-        try:
-          S.ws = WebSocket('wss://socketio.mtgox.com/socket.io/1/websocket/2086259808926456928', version=6) # ws://websocket.mtgox.com/mtgox
-          try:
-            msg = S.ws.recv()
-            while msg is not None and S.run:
-                S.onMessage(msg)
-                msg = S.ws.recv()
-                #debug_print("received ws msg")
-                #print("weboscket receiving")
-          except:
-            print 'exception receiving websocket'
-        except:
-          print 'exception connecting websocket: ', sys.exc_info()[0], " will retry..."
-          time.sleep(3)
-        #time.sleep(0.1)
-          
-      print 'websocket_thread() exit'
-
   # --- bot support ----------------------------------------------------------------------------------------------------------
   
   def getBTC(S): 

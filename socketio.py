@@ -3,8 +3,8 @@ import urllib2, urllib
 import simplejson as json
 import ssl, socket
 import time
-from websocket import WebSocket
-
+#from websocket import WebSocket
+from websocket_client import create_connection
 
 class SocketIO:
   def __init__(S, url, callback):
@@ -39,7 +39,9 @@ class SocketIO:
     
     my_url = 'wss://' + S.url + "/1/websocket/" + S.id
     
-    S.ws = WebSocket(my_url, version=0) 
+    S.ws = create_connection(my_url)
+    
+    #S.ws = WebSocket(my_url, version=0) 
     S.run = True
     S.ws.send('1::/mtgox')
 
@@ -58,6 +60,7 @@ class SocketIO:
       #else:
       #  print "SocketIO: dont know how to handle msg: ", msg
       msg = S.ws.recv()
+    S.ws.close()
       
   def keepalive_func(S):
     while S.run:

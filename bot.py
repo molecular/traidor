@@ -89,7 +89,8 @@ class ValueBot(ThreadedBot):
 
   def info(S):
     rc = "ValueBot Info:\n"
-    rc += "  direction: %s" % S.direction
+    rc += "  direction: %s\n" % S.direction
+    rc += "trading fee: %s%%\n" % (S.x.getTradeFee() * 100)
     return rc
 
 class TriggerBot(Bot):

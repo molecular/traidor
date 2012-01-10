@@ -13,7 +13,6 @@ use_websockets=true
 debug_websockets=false
 debug_request_timing=true
 request_timeout_secs=10
-trading_fee=0.003
 
 [monetary]
 evaluation_base_btc=0

@@ -23,7 +23,10 @@ class Exchange:
     if S.eval_base_btc > 0 and S.last_price != 0: rc += " | eval(%s BTC) = %s USD" % (S.eval_base_btc, (S.eval(S.eval_base_btc) - S.eval_base_usd).quantize(D('0.01')))
     rc += " | [h]elp #> "
     return rc
-
+    
+  def getTradeFee(S):
+    return(D(10))
+    
   def stop(S):
     S.run = False
     

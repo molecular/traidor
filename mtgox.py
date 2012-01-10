@@ -39,7 +39,6 @@ class MtGox (Exchange):
     
     S.datalock = Lock()
     
-    S.trading_fee = D(config.get('mtgox','trading_fee'))
     S.eval_base_btc = D(config.get('monetary','evaluation_base_btc'))
     S.eval_base_usd = D(config.get('monetary','evaluation_base_usd'))
     
@@ -62,8 +61,8 @@ class MtGox (Exchange):
     S.auth_secret = base64.b64decode(config.get('mtgox', 'auth_secret'))
 
   def start(S):
-    #if S.debug: print 'request_info()'
-    #S.request_info()
+    if S.debug: print 'request_info()'
+    S.request_info()
     if S.debug: print 'request_orders()'
     S.orders = S.request_orders() # DATALOCK?
     #if S.debug: print 'request_ticker()'
@@ -111,6 +110,9 @@ class MtGox (Exchange):
     # woah, friggin linear search, do something !! ^^
     for o in S.orders['orders']: 
       if o['oid'] == oid: return o
+        
+  def getTradeFee(S):
+    return D(S.info['Trade_Fee']) / 100
 
   def get_orders(S):
     #"""unclear if this should be in the bot api because of the json-deriven format of orders"""
@@ -137,7 +139,7 @@ class MtGox (Exchange):
 
   def eval(S, base):
     delta = S.getBTC() - base
-    corrected_usd = S.getUSD() + (S.last_price * delta * (D('1.0') - S.trading_fee))
+    corrected_usd = S.getUSD() + (S.last_price * delta * (D('1.0') - S.getTradeFee()))
     return corrected_usd
     
   # --- websocket callbacks --------------------------------------------------------------------------------------------------
@@ -303,7 +305,7 @@ class MtGox (Exchange):
 
   def request_info(S):
     S.info = S.request_json_authed('/api/0/info.php')
-    #print 'S.info: ', S.info
+    print 'S.info: ', S.info
 
   def request_ticker(S):
     S.ticker = S.request_json_authed('/api/0/data/ticker.php')

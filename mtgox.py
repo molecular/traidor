@@ -9,10 +9,19 @@ import simplejson as json
 import urllib, urllib2 #, httplib2
 import common
 from socketio import SocketIO
+from hashlib import sha512
+from hmac import HMAC
+import base64
 
 # http://mtgox.com/api/1/BTCUSD/public/fulldepth
 
 __all__ = ["MtGox"]
+
+def get_nonce():
+    return int(time.time()*100000)
+
+def sign_data(secret, data):
+    return base64.b64encode(str(HMAC(secret, data, sha512).digest()))  
 
 def convert_certain_json_objects_to_decimal(dct):
   for k in ('amount', 'price', 'btcs', 'usds', 'volume'):
@@ -30,8 +39,6 @@ class MtGox (Exchange):
     
     S.datalock = Lock()
     
-    S.mtgox_account_name = config.get('mtgox', 'account_name')
-    S.mtgox_account_pass = config.get('mtgox', 'account_pass')
     S.trading_fee = D(config.get('mtgox','trading_fee'))
     S.eval_base_btc = D(config.get('monetary','evaluation_base_btc'))
     S.eval_base_usd = D(config.get('monetary','evaluation_base_usd'))
@@ -42,13 +49,15 @@ class MtGox (Exchange):
     S.depth_invalid_counter = 0
     S.last_price = D('0.0')
     S.order_distance = D('0.00001')
-#    S.connection = httplib2.HTTPSConnectionWithTimeout("mtgox.com:443", strict=False, timeout=10)
     S.orders = {'btcs': -1, 'usds': -1}
     S.trades = []
     S.freeze_depth_update = 0
     
     t_show_depth = Thread(target = S.show_depth_run)
     t_show_depth.start()
+
+    S.auth_key = config.get('mtgox', 'auth_key')
+    S.auth_secret = base64.b64decode(config.get('mtgox', 'auth_secret'))
 
   def start(S):
     #if S.debug: print 'request_info()'
@@ -60,7 +69,6 @@ class MtGox (Exchange):
     #S.last_price = S.ticker['ticker']['last']
     if S.debug: print 'request_market()'
     S.request_market();
-#    S.prompt()
     
     # start request_thread() thread
     t_request = Thread(target = S.request_thread)
@@ -74,7 +82,8 @@ class MtGox (Exchange):
 
   def stop(S):
     Exchange.stop(S)
-    S.sio.stop()
+    if S.use_ws:
+      S.sio.stop()
 
   # --- bot support ----------------------------------------------------------------------------------------------------------
   
@@ -227,8 +236,13 @@ class MtGox (Exchange):
   # --- api stuff --------------------------------------------------------------------------------------------------------
   
   def request_json(S, url, params={}):
+    params["nonce"] = get_nonce()
     data = urllib.urlencode(params)
-    req = urllib2.Request("https://mtgox.com:443" + url, data)
+    headers = {}
+    headers["User-Agent"] = "GoxApi"
+    headers["Rest-Key"] = S.auth_key
+    headers["Rest-Sign"] = sign_data(S.auth_secret, data)
+    req = urllib2.Request("https://mtgox.com" + url, data, headers)
     success = False
     while not success:
       try:
@@ -240,15 +254,15 @@ class MtGox (Exchange):
         time.sleep(3)
     return json.load(response, use_decimal=True, object_hook=convert_certain_json_objects_to_decimal)
   
+  # can probably be removed, request_json is already authed
   def request_json_authed(S, url, params={}):
     start_time = time.time()
-    params['name'] = S.mtgox_account_name
-    params['pass'] = S.mtgox_account_pass
     rc = S.request_json(url, params);
-    #json.load(S.request_json(url, params), use_decimal=True, object_hook=convert_certain_json_objects_to_decimal)
     duration = time.time() - start_time
     if S.debug_request_timing:
       debug_print('requesting https://mtgox.com:443%s took %s seconds' % (url, duration))
+    if rc.has_key('error'):
+      print 'mtgox error: ', rc['error']
     return rc
 
   def request_market(S):

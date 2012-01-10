@@ -4,8 +4,8 @@ debug=true
 initial_depth_display_height=20
 
 [mtgox]
-account_name=<your mtgox user>
-account_pass=<your mtgox pass>
+auth_key=<mtgox api key>
+auth_secret=<mtgox api secret>
 debug=true
 use_websockets=true
 debug_websockets=false

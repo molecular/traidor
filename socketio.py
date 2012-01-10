@@ -3,8 +3,8 @@ import urllib2, urllib
 import simplejson as json
 import ssl, socket
 import time
-#from websocket import WebSocket
 from websocket_client import create_connection
+import traceback
 
 class SocketIO:
   def __init__(S, url, callback):
@@ -12,21 +12,24 @@ class SocketIO:
     S.callback = callback
     
   def connect(S):
-    data = urllib.urlencode({})
-    req = urllib2.Request('https://' + S.url + "/1", data)
-    print 'https://' + S.url + "/1"
-    response = urllib2.urlopen(req)
-    r = response.read().split(':')
-    S.heartbeat_interval = int(r[1])
-    print 'heartbeat: ', S.heartbeat_interval
-    if 'websocket' in r[3].split(','):
-      print "good: transport 'websocket' supported by socket.io server ", S.url
-      S.id = r[0]
-      print "id: ", S.id
+    try:
+      data = urllib.urlencode({})
+      req = urllib2.Request('https://' + S.url + "/1", data)
+      print 'https://' + S.url + "/1"
+      response = urllib2.urlopen(req)
+      r = response.read().split(':')
+      S.heartbeat_interval = int(r[1])
+      print 'heartbeat: ', S.heartbeat_interval
+      if 'websocket' in r[3].split(','):
+        print "good: transport 'websocket' supported by socket.io server ", S.url
+        S.id = r[0]
+        print "id: ", S.id
 
-    S.thread = Thread(target = S.thread_func)
-    S.thread.setDaemon(True)
-    S.thread.start()
+      S.thread = Thread(target = S.thread_func)
+      S.thread.setDaemon(True)
+      S.thread.start()
+    except:
+      traceback.print_exc()      
 
   def stop(S):
     S.run = False

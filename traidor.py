@@ -136,7 +136,7 @@ class Traidor:
       elif cmd[0] == 'q': 
         S.run = False
       elif cmd[0] == 'h': 
-        S.traidor.auto_update_depth = False
+        S.auto_update_depth = False
         S.show_help()
       elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth; print 'auto_update_depth = ', S.auto_update_depth
       #elif cmd[0] == 't': 

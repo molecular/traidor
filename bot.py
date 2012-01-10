@@ -85,7 +85,8 @@ class ValueBot(ThreadedBot):
     S.last_price = S.x.last_price
 
   def act(S):
-    S.output(S.info())
+    pass
+    #S.output(S.info())
 
   def info(S):
     rc = "ValueBot Info:\n"

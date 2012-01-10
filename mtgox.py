@@ -17,21 +17,38 @@ import base64
 
 __all__ = ["MtGox"]
 
+MTGOX_INT_USD = D('100000')
+
 def get_nonce():
     return int(time.time()*100000)
 
 def sign_data(secret, data):
     return base64.b64encode(str(HMAC(secret, data, sha512).digest()))  
 
-def convert_certain_json_objects_to_decimal(dct):
-  for k in ('amount', 'price', 'btcs', 'usds', 'volume'):
-    if k in dct: dct[k] = D(dct[k])
-  for k in ('asks', 'bids'):
-    if k in dct: 
-      for idx in range(len(dct[k])):
-        for i in (0,1): 
-          dct[k][idx][i] = D(dct[k][idx][i]) 
-  return dct
+def convert_certain_json_objects_to_decimal(dct2):
+  if 'return' in dct2:
+    dct = dct2['return']
+    try:
+      for w in dct['Wallets'].values():
+        w['Balance']['value'] = D(w['Balance']['value'])
+    except:
+      pass
+
+    try:
+      for o in dct:
+        for k in ('price', 'amount'):
+          o[k]['value'] = D(o[k]['value'])
+    except:
+      pass
+  else:
+    dct = dct2
+    for k in ('asks', 'bids'):
+      if k in dct:
+        for o in dct[k]:
+          for l in ('amount', 'price'): 
+            o[l] = D(o[l])
+    dct2 = dct
+  return dct2
 
 class MtGox (Exchange):
   def __init__(S, traidor, config):
@@ -68,6 +85,10 @@ class MtGox (Exchange):
     #if S.debug: print 'request_ticker()'
     #S.request_ticker()
     #S.last_price = S.ticker['ticker']['last']
+    
+    #if S.debug: print 'request_trades()'
+    #S.request_trades();
+    
     if S.debug: print 'request_market()'
     S.request_market();
     
@@ -99,16 +120,16 @@ class MtGox (Exchange):
   # --- bot support ----------------------------------------------------------------------------------------------------------
   
   def getBTC(S): 
-    return S.orders['btcs']
+    return S.info['Wallets']['BTC']['Balance']['value']
     #return D(S.info['Wallets']['BTC']['Balance']['value'])
     
   def getUSD(S): 
-    return S.orders['usds']
+    return S.info['Wallets']['USD']['Balance']['value']
     #return D(S.info['Wallets']['USD']['Balance']['value'])
 
   def get_order(S, oid):
     # woah, friggin linear search, do something !! ^^
-    for o in S.orders['orders']: 
+    for o in S.orders: 
       if o['oid'] == oid: return o
         
   def getTradeFee(S):
@@ -116,19 +137,21 @@ class MtGox (Exchange):
 
   def get_orders(S):
     #"""unclear if this should be in the bot api because of the json-deriven format of orders"""
-    return S.orders['orders']
+    return S.orders
 
   def do_trade(S, type, vol, price):
-    result = S.request_json_authed('/code/' + type + 'BTC.php', params = {'amount': vol, 'price': price})
-    print '{%s}: %s' % (result['oid'], result['status'])
-    S.orders['orders'] = result['orders']
-    return result['oid']
+    if type=='sell': type2 = 'ask'
+    if type=='buy': type2 = 'bid'
+    result = S.request_json_authed('/api/1/BTCUSD/private/order/add', params = {'type': type2, 'amount': vol, 'price': price})
+    print '{%s}: %s' % (result['return'], result['result'])
+    S.orders = S.request_orders()
+    return result['return']
 
   def do_cancel_order(S, oid):
     print 'CANCELLING order {%s}' % oid
     o = S.get_order(oid)
     result = S.request_json_authed('/code/cancelOrder.php', {'oid': o['oid'], 'type': o['type']})
-    S.orders['orders'] = result['orders']
+    S.orders = S.request_orders()
     
   def do_cancel_all_orders(S):
     oids = list()
@@ -157,11 +180,6 @@ class MtGox (Exchange):
       sys.stderr.flush() #json.dumps(m, sort_keys=True, indent=2)
     channel = m['channel']
     op = m['op']
-    #print 'message in channel ', channel, ' op: ', op
-    
-#    if channel == 'd5f06780-30a8-4a48-a2f8-7ed181b4a13f': # ticker
-#      print m
-
     
     # trades
     #if channel != '24e67e0d-1cad-4cc0-9e7a-f8523ef460fe': debug_print(m)
@@ -275,18 +293,20 @@ class MtGox (Exchange):
     duration = time.time() - start_time
     if S.debug_request_timing:
       debug_print('requesting https://mtgox.com:443%s took %s seconds' % (url, duration))
-    if rc.has_key('error'):
-      print 'mtgox error: ', rc['error']
+    try:
+      if rc.has_key('error'):
+        print 'mtgox error: ', rc['error']
+    except: pass
     return rc
 
   def request_market(S):
-    S.market = S.request_json('/api/0/data/getDepth.php')
+    S.market = S.request_json('/api/1/BTCUSD/public/depth?raw')
     
-    S.highest_bid = sorted(S.market['bids'], reverse=True)[0][0];
-    S.lowest_ask = sorted(S.market['asks'])[0][0];
-    S.highest_bid_vol = S.market['bids'][0][1];
-    S.lowest_ask_vol = S.market['asks'][0][1];
-    S.dmz_width = S.highest_bid - S.lowest_ask;
+    #S.highest_bid = sorted(S.market['bids'], reverse=True)['price'];
+    #S.lowest_ask = sorted(S.market['asks'])['price'];
+    #S.highest_bid_vol = S.market['bids'][0][1];
+    #S.lowest_ask_vol = S.market['asks'][0][1];
+    #S.dmz_width = S.highest_bid - S.lowest_ask;
 
     # S.market (list) -> S.depth (dict)
     S.datalock.acquire()
@@ -294,30 +314,36 @@ class MtGox (Exchange):
     for kind in ('bids', 'asks'):
       S.depth[kind] = {}
       for o in S.market[kind]:
-        price = o[0].quantize(common.PRICE_PREC)
+        price = o['price'].quantize(common.PRICE_PREC)
         if not S.depth[kind].has_key(price): S.depth[kind][price] = D(0)
-        S.depth[kind][price] += o[1]
+        S.depth[kind][price] += o['amount']
     S.depth_invalid_counter += 1
     S.datalock.release()
 
   def request_orders(S):
-    return S.request_json_authed('/api/0/getOrders.php')
+    return S.request_json_authed('/api/1/generic/private/orders')['return']
 
   def request_info(S):
-    S.info = S.request_json_authed('/api/0/info.php')
-    print 'S.info: ', S.info
+    S.info = S.request_json_authed('/api/1/generic/private/info')['return']
 
   def request_ticker(S):
-    S.ticker = S.request_json_authed('/api/0/data/ticker.php')
+    S.ticker = S.request_json_authed('/api/1/BTCUSD/public/ticker')
 
   def request_trades(S):
     S.datalock.acquire()
-    S.trades2 = S.request_json_authed('/api/0/data/getTrades.php')
+    S.trades2 = S.request_json_authed('/api/1/BTCUSD/public/trades?raw')
     S.trades = list()
     for trade in S.trades2[-200:]:
       S.trades.append(Trade(trade['date'], trade['amount'], trade['price'], '?'))
     S.last_price = S.trades[-1].price
     S.datalock.release()
+    #S.replay_trades()
+    
+  def replay_trades(S):
+    for trade in S.trades:
+      for bot in S.traidor.bots:
+        print trade
+        bot.trade(trade)
     
   # --- show_* ----------------------------------------------------------------------------------------
 
@@ -326,18 +352,17 @@ class MtGox (Exchange):
     S.traidor.displaylock.acquire()
     print "\n"
     i = 0
-    print "[IDX] {                id                  } | typ    volume   price    - status"
+    print "[IDX] {                id                  } | typ    volume    price   - status"
     print "                                             |"
     type = -1
-    for o in sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True):
+    for o in sorted(S.orders, key=lambda ord: ord['price']['value'], reverse=True):
       #print "{%s}: %s %s" % (o['oid'], o['amount'], o['price'])
-      if o['type'] == 2 and type == 'ask' and len(S.orders['orders']) > 2: print "                                             |"
+      if type=='ask': type = 'sell'
+      elif type=='bid': type = 'buy'
+      if o['type'] == 'bid' and type == 'sell' and len(S.orders) > 2: print "                                             |"
       #print o
       type = o['type']
-      if type==1: type = 'ask'
-      elif type==2: type = 'bid'
-      else: type = 'unknown'
-      print "[%3i] {%s} | %s %s %s - %i %s" % (i, o['oid'], type, dec(o['amount'], 4, 5), dec(o['price'], 3, 5), o['status'], o['real_status'])
+      print "[%3i] {%s} | %s %s %s - %s" % (i, o['oid'], type, dec(o['amount']['value'], 4, 5), dec(o['price']['value'], 3, 5), o['status'])
       i += 1
     S.traidor.displaylock.release()
     S.datalock.release()
@@ -401,7 +426,7 @@ class MtGox (Exchange):
     S.traidor.displaylock.acquire()
     S.datalock.acquire()
     s = []
-    my_orders = S.orders['orders']
+    my_orders = S.orders
     for kind in ('bids', 'asks'):
       akku = D(0);
         
@@ -417,8 +442,8 @@ class MtGox (Exchange):
           str = "%s %s %5s" % (dec(price, 3, 5), dec(vol, 4, 1), akku.quantize(VOL2_PREC))  
           my_vol = D(0)
           for my_order in my_orders:
-            if my_order['price'].quantize(common.PRICE_PREC) == price.quantize(common.PRICE_PREC): 
-              my_vol += my_order['amount']
+            if my_order['price']['value'].quantize(common.PRICE_PREC) == price.quantize(common.PRICE_PREC): 
+              my_vol += my_order['amount']['value']
           if (my_vol > 0): str = '%6s %s' % (my_vol.quantize(MYVOL_PREC),str)
           else: str = '       ' + str
           str = "[%3i]" % i + str
@@ -434,8 +459,8 @@ class MtGox (Exchange):
           str = "%-5s %s %s" % (akku.quantize(VOL2_PREC), dec(vol, 4, 1), dec(price, 3, 5))
           my_vol = D(0)
           for my_order in my_orders:
-            if my_order['price'].quantize(common.PRICE_PREC) == price.quantize(common.PRICE_PREC): 
-              my_vol += my_order['amount']
+            if my_order['price']['value'].quantize(common.PRICE_PREC) == price.quantize(common.PRICE_PREC): 
+              my_vol += my_order['amount']['value']
           if (my_vol > 0): str = str + ' %-6s ' % my_vol.quantize(MYVOL_PREC)
           else: str += '        '
           if s_i >= 0:
@@ -513,7 +538,7 @@ class MtGox (Exchange):
     to_cancel = list()
     for idx in p[1:]:
       index = int(idx)
-      to_cancel.append(sorted(S.orders['orders'], key=lambda ord: ord['price'], reverse=True)[index])
+      to_cancel.append(sorted(S.orders, key=lambda ord: ord['price']['value'], reverse=True)[index])
 
     S.traidor.displaylock.acquire()
     all_yes = is_bot
@@ -522,9 +547,9 @@ class MtGox (Exchange):
       #key = raw_input("\ncancel order oid={%s} [y]es [n]o #> " % (o['oid']))
       if not all_yes:
         type = o['type']
-        if type==1: type = 'sell'
-        elif type==2: type = 'buy'
-        key = raw_input("\ncancel order {%s} | %s %s for %s ? [y]es [n]o [a]ll [c]ancel #>  " % (o['oid'], type, o['amount'], o['price']))
+        if type=='ask': type = 'sell'
+        elif type=='bid': type = 'buy'
+        key = raw_input("\ncancel order {%s} | %s %s for %s ? [y]es [n]o [a]ll [c]ancel #>  " % (o['oid'], type, o['amount']['value'], o['price']['value']))
         if key[0] == 'a': all_yes = True
         elif key[0] == 'c': pass
       if all_yes or key[0] == 'y': S.do_cancel_order(o['oid'])
@@ -543,6 +568,7 @@ class MtGox (Exchange):
           S.should_request = False
           S.datalock.acquire()
           S.orders = rc
+          print rc
           S.datalock.release()
         else:
           debug_print('request_orders() timeout (%ss)' % S.timeout_secs)

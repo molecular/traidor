@@ -1,5 +1,7 @@
 from common import *
 from decimal import Decimal as D
+from threading import *
+import time
 
 __all__ = ["Bot", "BeepBot", "ValueBot", "TriggerBot", "EquilibriumBot"]
 
@@ -9,9 +11,39 @@ class Bot:
     
   def getName(S):
     return 'generic Bot'
+
+  def stop(S):
+    pass
     
   def trade(S, trade):
     print "baseclass function trade() called"
+    
+  def output(S, str):
+    S.x.traidor.prompt(str)
+
+class ThreadedBot(Bot):
+  def __init__(S, exchange, interval_ms):
+    Bot.__init__(S, exchange)
+    S.interval = interval_ms
+    
+  def initialize(S):
+    S.run = True
+    S.thread = Thread(target = S)
+    S.thread.start()
+    
+  def stop(S):
+    S.run = False
+
+  def __call__(S):
+    while S.run:
+      S.act()
+      time.sleep(S.interval)
+
+  def act(S):
+    print 'ThreadedBot act() called, implement subclass'
+    
+  def getName(S):
+    return 'ThreadedBot'
 
 class BeepBot(Bot):
   def __init__(S, exchange):
@@ -32,14 +64,15 @@ class BeepBot(Bot):
       S.traidor.cmd('ps click.wav')
     S.last_price = S.x.last_price
 
-class ValueBot(Bot):
-  def __init__(S, exchange):
-    Bot.__init__(S, exchange)
+class ValueBot(ThreadedBot):
+  def __init__(S, exchange, interval_ms):
+    ThreadedBot.__init__(S, exchange, interval_ms)
     S.last_price = S.x.last_price
     S.traidor = S.x.traidor
+    S.direction = ''
     
   def initialize(S):
-    pass
+    ThreadedBot.initialize(S)
     
   def getName(S):
     return 'ValueBot'
@@ -50,7 +83,10 @@ class ValueBot(Bot):
     else:
       S.direction = 'up'
     S.last_price = S.x.last_price
-    
+
+  def act(S):
+    S.output(S.info())
+
   def info(S):
     rc = "ValueBot Info:\n"
     rc += "  direction: %s" % S.direction

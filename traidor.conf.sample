@@ -3,6 +3,7 @@ donated=true
 debug=true
 continue_on_exception=false
 initial_depth_display_height=20
+autoexec=vb 5
 
 [mtgox]
 auth_key=<mtgox api key>
@@ -11,6 +12,7 @@ debug=true
 use_websockets=true
 debug_websockets=false
 debug_request_timing=true
+request_timeout_secs=10
 trading_fee=0.003
 
 [monetary]

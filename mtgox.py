@@ -46,6 +46,7 @@ class MtGox (Exchange):
     S.use_ws = config.getboolean('mtgox', 'use_websockets')
     S.debug_ws = config.getboolean('mtgox', 'debug_websockets')
     S.debug_request_timing = config.getboolean('mtgox', 'debug_request_timing')
+    S.timeout_secs = config.get('mtgox', 'request_timeout_secs')
     S.depth_invalid_counter = 0
     S.last_price = D('0.0')
     S.order_distance = D('0.00001')
@@ -309,7 +310,7 @@ class MtGox (Exchange):
 
   def request_trades(S):
     S.datalock.acquire()
-    S.trades2 = S.request_json('/api/0/data/getTrades.php')
+    S.trades2 = S.request_json_authed('/api/0/data/getTrades.php')
     S.trades = list()
     for trade in S.trades2[-200:]:
       S.trades.append(Trade(trade['date'], trade['amount'], trade['price'], '?'))
@@ -535,15 +536,14 @@ class MtGox (Exchange):
     while S.run:
       time.sleep(0.17)
       if S.should_request:
-        timeout_secs = 25
-        rc = timeout(S.request_orders, timeout_duration=timeout_secs)
+        rc = timeout(S.request_orders, timeout_duration=S.timeout_secs)
         if rc != None:
           S.should_request = False
           S.datalock.acquire()
           S.orders = rc
           S.datalock.release()
         else:
-          debug_print('request_orders() timeout (%ss)' % timeout_secs)
+          debug_print('request_orders() timeout (%ss)' % S.timeout_secs)
           
     print 'request_thread() exit'
 

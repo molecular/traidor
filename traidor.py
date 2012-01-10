@@ -45,6 +45,7 @@ class Traidor:
     S.debug = parser.getboolean('main', 'debug')
     S.continue_on_exception = parser.getboolean('main', 'continue_on_exception')
     S.display_height = int(parser.get('main','initial_depth_display_height'))
+    S.autoexec = parser.get('main', 'autoexec')
     #lines = os.environ['LINES']
     #print "lines: ", lines
     S.bots = list()
@@ -62,8 +63,10 @@ class Traidor:
 
   # --- bot handling ---------------------------------------------------------------------------------------------------------
   
-  def addBot(S, bot):
+  def addBot(S, bot, do_init):
     S.bots.append(bot)
+    if do_init:
+      bot.initialize()
 
   def removeBot(S, bot):
     S.bots.remove(bot)
@@ -93,8 +96,9 @@ class Traidor:
     wx | gui              start gui\n\
     q                     quit\n\
 "
-  def prompt(S):
+  def prompt(S, print_before=""):
     S.displaylock.acquire()
+    if len(print_before) > 0: sys.stdout.write("\n%s" % print_before)
     sys.stdout.write(S.exchange.getPrompt())
     sys.stdout.flush()
     S.displaylock.release()
@@ -103,6 +107,7 @@ class Traidor:
     if (cmd.rfind(';') >= 0):
       for c in cmd.split(';'): S.cmd(c.strip())
     else:
+      #debug_print('cmd("%s")' % cmd)
       if cmd[:4] == 'eval': 
         S.auto_update_depth = False
         base = D(cmd[4:])
@@ -115,21 +120,23 @@ class Traidor:
           print "[%2i]: %s" % (i, bot.getName())
           i += 1
       elif cmd[:2] == 'tb': # TriggerBot
-        S.addBot(TriggerBot(t, cmd[2:]))
+        S.addBot(TriggerBot(t, cmd[2:]), True)
+      elif cmd[:2] == 'vb': # ValueBot
+        S.value_bot = ValueBot(t.exchange, float(cmd[2:]))
+        S.addBot(S.value_bot, True)
       elif cmd[:2] == 'v': # ValueBot info()
         try: S.value_bot 
         except:
-          S.value_bot = ValueBot(t)
-          S.addBot(S.value_bot)
+          S.cmd('vb 1000')
         print S.value_bot.info()
       elif cmd[:2] == 'wx' or cmd[:3] == 'gui':
         wx = TraidorApp(t)
-        S.addBot(wx)
+        S.addBot(wx, True)
         wx.initialize()
       elif cmd[0] == 'q': 
         S.run = False
       elif cmd[0] == 'h': 
-        S.traidr.auto_update_depth = False
+        S.traidor.auto_update_depth = False
         S.show_help()
       elif cmd[0] == 'a': S.auto_update_depth = not S.auto_update_depth; print 'auto_update_depth = ', S.auto_update_depth
       #elif cmd[0] == 't': 
@@ -166,6 +173,10 @@ class Traidor:
     for bot in S.bots:
       bot.initialize()
       
+    # autoexec
+    if S.debug: print 'running autoexec: "%s"...' % S.autoexec
+    S.cmd(S.autoexec, True)
+    
     if S.debug: print 'ready'
       
 
@@ -190,14 +201,19 @@ class Traidor:
           print 'exception, continue_on_exception = True => ignoring'
         
 
+    if S.debug: print 'stopping bots...'
+    for bot in S.bots:
+      bot.stop()
+      
     if S.debug: print 'stopping exchanges...'
     for x in S.exchanges:
       x.stop()
 
 
-if pygame_enabled: pygame.init()
 t = Traidor()
-t.addBot(BeepBot(t.exchange))
+if pygame_enabled: pygame.init()
+t.addBot(BeepBot(t.exchange), False)
+  
 
 #t.addBot(EquilibriumBot(t, D('0.0'), D('0'), D('3.0'), D('0.2'))) # btc add, usd add, fund_multiplier, desired_amount
 #t.cmd("tb >= 14.80 ps alarm.wav")

@@ -52,6 +52,7 @@ class MtGox (Exchange):
     S.orders = {'btcs': -1, 'usds': -1}
     S.trades = []
     S.freeze_depth_update = 0
+    S.sio = None
     
     t_show_depth = Thread(target = S.show_depth_run)
     t_show_depth.start()
@@ -76,14 +77,24 @@ class MtGox (Exchange):
     t_request.start()
 
     # start websocket_thread
+    S.start_ws()
+    
+  def start_ws(S):
+    if S.sio:
+      S.stop_ws()
     if S.use_ws:
       S.sio = SocketIO('socketio.mtgox.com/socket.io', S.onMessage)
       S.sio.connect()
 
   def stop(S):
     Exchange.stop(S)
-    if S.use_ws:
+    S.stop_ws()
+    
+  def stop_ws(S):
+    if S.sio:
+      print 'stopping socket.IO'
       S.sio.stop()
+      S.sio = None
 
   # --- bot support ----------------------------------------------------------------------------------------------------------
   
@@ -549,7 +560,10 @@ class MtGox (Exchange):
       for c in cmd.split(';'): S.cmd(c.strip())
     else:
       if cmd[:3] == 'dws': S.debug_ws = not S.debug_ws; print 'debug_ws=', S.debug_ws
-      elif cmd[:3] == 'ws': S.use_ws = not S.use_ws; print 'use_ws=', S.use_ws
+      elif cmd[:3] == 'ws': 
+        S.use_ws = not S.use_ws;
+        print 'use_ws=', S.use_ws
+        S.start_ws()
       elif cmd[0] == 'b' or cmd[0] == 's': 
         #S.traidor.auto_update_depth = False
         S.freeze_depth_update = 4

@@ -64,12 +64,15 @@ class SocketIO:
       
   def keepalive_func(S):
     while S.run:
-      time.sleep(S.heartbeat_interval)
       try:
         S.ws.send('2::');
       except:
-        print 'error sending keepalive socket.io, trying reconnect'
-        S.connect()
+        if S.run:
+          print 'error sending keepalive socket.io, trying reconnect'
+          S.connect()
+        else:
+          print 'exiting socket.io keepalive thread'
+      time.sleep(S.heartbeat_interval)
       
 def test_callback(msg):
   print 'msg: ', msg

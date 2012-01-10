@@ -45,6 +45,7 @@ class MtGox (Exchange):
 #    S.connection = httplib2.HTTPSConnectionWithTimeout("mtgox.com:443", strict=False, timeout=10)
     S.orders = {'btcs': -1, 'usds': -1}
     S.trades = []
+    S.freeze_depth_update = 0
     
     t_show_depth = Thread(target = S.show_depth_run)
     t_show_depth.start()
@@ -145,33 +146,48 @@ class MtGox (Exchange):
     if op == 'private' and channel == 'dbf1dee9-4f2e-4a08-8cb7-748919a71b21': 
 #      S.datalock.acquire()
       trade = m['trade']
-      if (trade['type'] != 'trade'): print m
-      #s = '%s: [trade %s]: %5.1f for %.4f' % (trade['date'], trade['tid'], float(trade['amount']), float(trade['price']))
-      depth_type = None
-      type = 'unknown'
       
-      #S.trades.append([trade['date'], trade['tid'], trade['amount'], trade['price'], type])
-      #S.img.write("test/%s.png" % trade['date'])
-      
-      trade = Trade(trade['date'], trade['amount'], trade['price'], trade['trade_type'])
-      S.trades.append(trade)
-      update = False
-      #S.last_depth_update = time.time()
-      S.depth_invalid_counter += 1
-      #update = S.auto_update_depth
-      
-      # bots 
-#      S.datalock.release()
-      #S.orders = S.request_orders() # hmmmgrl, really? 
-      S.last_price = trade.price
-      for bot in S.traidor.bots:
-        bot.trade(trade)
+      if trade['price_currency'] == 'USD':
+        debug_print(m)
+        if (trade['type'] != 'trade'): print m
+        #s = '%s: [trade %s]: %5.1f for %.4f' % (trade['date'], trade['tid'], float(trade['amount']), float(trade['price']))
+        depth_type = None
+        type = 'unknown'
+        
+        #S.trades.append([trade['date'], trade['tid'], trade['amount'], trade['price'], type])
+        #S.img.write("test/%s.png" % trade['date'])
+        
+        # adjust depth
+        if False:
+          rev_type = 'asks'
+          if trade['trade_type'] == 'ask': rev_type = 'bids' 
+          price = trade['price']
+          if not S.depth[rev_type].has_key(price): 
+            print 'no depth of type %s (reverse of %s)' % (rev_type, type)
+            S.depth[type][price] = D('0')
+          S.depth[rev_type][price] -= trade['amount']
+          
+        
+        trade = Trade(trade['date'], trade['amount'], trade['price'], trade['trade_type'])
+        S.trades.append(trade)
+        update = False
+        #S.last_depth_update = time.time()
+        S.depth_invalid_counter += 1
+        #update = S.auto_update_depth
+        
+        # bots 
+  #      S.datalock.release()
+        #S.orders = S.request_orders() # hmmmgrl, really? 
+        S.last_price = trade.price
+        for bot in S.traidor.bots:
+          bot.trade(trade)
 
     # depth: {u'volume': 7.7060600456200001, u'price': 6.4884000000000004, u'type': 1}
     if op == 'private' and channel == '24e67e0d-1cad-4cc0-9e7a-f8523ef460fe': 
-      #print m
       depth_msg = m['depth']
+      
       if depth_msg['currency'] == 'USD':
+        #debug_print(m)
         S.datalock.acquire()
         type = depth_msg['type_str'] + 's'
         price = D(depth_msg['price']).quantize(common.PRICE_PREC)
@@ -179,9 +195,17 @@ class MtGox (Exchange):
         if not S.depth[type].has_key(price): 
           S.depth[type][price] = D('0')
         S.depth[type][price] += volume
+        
+        total_volume = D(depth_msg['total_volume_int']) * D('0.00000001')
+        if total_volume != S.depth[type][price]:
+          debug_print("price %s: my_vol %s total_vol %s" % (price, S.depth[type][price], total_volume))
+          S.depth[type][price] = total_volume
+        
         if S.depth[type][price] <= D('0'): 
           S.depth[type].pop(price)
         #S.dmz_width = sorted(S.depth['asks'])[0] - sorted(S.depth['bids'], reverse=True)[0]
+        
+        
         update = False
         S.last_depth_update = time.time()
         S.depth_invalid_counter += 1
@@ -323,13 +347,16 @@ class MtGox (Exchange):
     print 'show_depth()-thread started'
     info_counter = 0
     S.last_depth_update = time.time()
+    last_show_depth = time.time()
     while S.run:
-      time.sleep(0.17)
+      time.sleep(0.37)
       age = time.time() - S.last_depth_update
       if S.traidor.auto_update_depth:
         # once enough time passed since last depth update msg (burst ceased) or a lot of update messages queued up, call show_depth()
-        if (age >= 0.71 and S.depth_invalid_counter > 0) or S.depth_invalid_counter > 21:  
+        if (time.time() - last_show_depth) > S.freeze_depth_update and ((age >= 0.71 and S.depth_invalid_counter > 0) or S.depth_invalid_counter > 21):  
           #print 'show_depth_run(): calling show_depth()'
+          S.freeze_depth_update = 0
+          last_show_depth = time.time()
           S.show_depth()
           #S.orders = S.request_orders() DATALOCK
           info_counter += 1
@@ -510,14 +537,17 @@ class MtGox (Exchange):
       if cmd[:3] == 'dws': S.debug_ws = not S.debug_ws; print 'debug_ws=', S.debug_ws
       elif cmd[:3] == 'ws': S.use_ws = not S.use_ws; print 'use_ws=', S.use_ws
       elif cmd[0] == 'b' or cmd[0] == 's': 
-        S.traidor.auto_update_depth = False
+        #S.traidor.auto_update_depth = False
+        S.freeze_depth_update = 4
         S.trade(cmd, is_bot)
       elif cmd[0] == 'c': 
         S.traidor.auto_update_depth = False
+        #S.freeze_depth_update = 4
         S.cancel_order(cmd, is_bot); 
         S.show_orders()
       elif cmd[0] == 'o': 
-        S.traidor.auto_update_depth = False
+        #S.traidor.auto_update_depth = False
+        S.freeze_depth_update = 20
         rc = S.request_orders(); 
         S.datalock.acquire()
         S.orders = rc

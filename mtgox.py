@@ -209,7 +209,7 @@ class MtGox (Exchange):
           S.depth[rev_type][price] -= trade['amount']
           
         
-        trade = Trade(trade['date'], trade['amount'], trade['price'], trade['trade_type'])
+        trade = Trade(trade['tid'], trade['date'], trade['amount'], trade['price'], trade['trade_type'])
         S.trades.append(trade)
         update = False
         #S.last_depth_update = time.time()
@@ -331,18 +331,26 @@ class MtGox (Exchange):
 
   def request_trades(S):
     S.datalock.acquire()
-    S.trades2 = S.request_json_authed('/api/1/BTCUSD/public/trades?raw')
-    S.trades = list()
-    for trade in S.trades2[-200:]:
-      S.trades.append(Trade(trade['date'], trade['amount'], trade['price'], '?'))
+    url = '/api/1/BTCUSD/public/trades?raw'
+    if len(S.trades) > 0:
+      print S.trades[-1].tid
+      url += "&since=" + S.trades[-1].tid
+    else:
+      S.trades = list()
+      url += "&since=1326237516441964"
+    print 'url: ', url
+    S.trades2 = S.request_json_authed(url)
+    for trade in S.trades2:
+      S.trades.append(Trade(trade['tid'], trade['date'], trade['amount'], trade['price'], trade['trade_type']))
     S.last_price = S.trades[-1].price
     S.datalock.release()
-    #S.replay_trades()
+    print '%i trades' % len(S.trades)
+    S.replay_trades()
     
   def replay_trades(S):
     for trade in S.trades:
       for bot in S.traidor.bots:
-        print trade
+        #print trade.str()
         bot.trade(trade)
     
   # --- show_* ----------------------------------------------------------------------------------------
@@ -611,6 +619,8 @@ class MtGox (Exchange):
         S.show_orders()
       elif cmd[0] == 'e': S.show_depth()
       elif cmd[0] == 'r': S.reload_depth();
+      elif cmd[0] == 't': S.request_trades();
+        
       #elif cmd[0] == 't': 
       #  for x in S.ticker: print x
       #  print S.ticker

@@ -14,11 +14,11 @@ MYVOL_PREC = D('0.01')
 
 # class Trade
 class Trade:
-  def __init__(S, time, amount, price, type):
-    (S.time, S.amount, S.price, S.type) = (time, D(amount), D(price), type)
+  def __init__(S, tid, time, amount, price, type):
+    (S.tid, S.time, S.amount, S.price, S.type) = (tid, time, D(amount), D(price), type)
     
   def str(S):
-    "{%s} | %s for %s - %i %s" % (S['oid'], o['amount'], o['price'], o['status'], o['real_status'])
+    return "%i: {%s} | %s for %s - %s" % (S.time, S.tid, S.amount, S.price, S.type)
 
 # talking
 def say(text):

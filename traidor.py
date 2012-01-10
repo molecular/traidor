@@ -20,6 +20,7 @@ from threading import *
 from common import *
 import common
 from bot import *
+import traceback
 #from wxgui import *
 #from img import *
 
@@ -42,6 +43,7 @@ class Traidor:
     
     S.donated = parser.getboolean('main', 'donated')
     S.debug = parser.getboolean('main', 'debug')
+    S.continue_on_exception = parser.getboolean('main', 'continue_on_exception')
     S.display_height = int(parser.get('main','initial_depth_display_height'))
     #lines = os.environ['LINES']
     #print "lines: ", lines
@@ -114,6 +116,12 @@ class Traidor:
           i += 1
       elif cmd[:2] == 'tb': # TriggerBot
         S.addBot(TriggerBot(t, cmd[2:]))
+      elif cmd[:2] == 'v': # ValueBot info()
+        try: S.value_bot 
+        except:
+          S.value_bot = ValueBot(t)
+          S.addBot(S.value_bot)
+        print S.value_bot.info()
       elif cmd[:2] == 'wx' or cmd[:3] == 'gui':
         wx = TraidorApp(t)
         S.addBot(wx)
@@ -163,29 +171,24 @@ class Traidor:
 
     counter = 0
     while (S.run):
+      try:
+        key = raw_input(S.exchange.getPrompt());
+        if (len(key) > 0):
+          S.cmd(key)
+        else: 
+          #S.request_info();
+          S.exchange.show_depth();
+        counter += 1
+        if (counter % 31) == 13 and not S.donated:
+          print '\n\n\n\n\nplease consider donating to 1Ct1vCN6idU1hKrRcmR96G4NgAgrswPiCn\n\n\n(to remove donation msg, put "donated=1" into configfile, section [main])\n'
+      except:
+        traceback.print_exc()
+        if not S.continue_on_exception: 
+          print 'exception, continue_on_exception = False => quitting'
+          S.run = False
+        else:
+          print 'exception, continue_on_exception = True => ignoring'
         
-                
-      #if S.use_ws:
-      #  while not S.ws.connected:
-      #    if S.debug: print 'connecting websocket...'
-      #    try:
-      #      S.ws.connect();
-      #      if S.debug: print 'websocket connected'
-      #    except:
-      #      print 'connection problem, retrying later...'
-      #      time.sleep(1);
-            
-        
-      #S.print_stuff();
-      key = raw_input(S.exchange.getPrompt());
-      if (len(key) > 0):
-        S.cmd(key)
-      else: 
-        #S.request_info();
-        S.exchange.show_depth();
-      counter += 1
-      if (counter % 31) == 13 and not S.donated:
-        print '\n\n\n\n\nplease consider donating to 1Ct1vCN6idU1hKrRcmR96G4NgAgrswPiCn\n\n\n(to remove donation msg, put "donated=1" into configfile, section [main])\n'
 
     if S.debug: print 'stopping exchanges...'
     for x in S.exchanges:

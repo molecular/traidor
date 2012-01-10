@@ -1,7 +1,7 @@
 from common import *
 from decimal import Decimal as D
 
-__all__ = ["Bot", "BeepBot", "TriggerBot", "EquilibriumBot"]
+__all__ = ["Bot", "BeepBot", "ValueBot", "TriggerBot", "EquilibriumBot"]
 
 class Bot:
   def __init__(S, exchange):
@@ -31,7 +31,31 @@ class BeepBot(Bot):
     else:
       S.traidor.cmd('ps click.wav')
     S.last_price = S.x.last_price
+
+class ValueBot(Bot):
+  def __init__(S, exchange):
+    Bot.__init__(S, exchange)
+    S.last_price = S.x.last_price
+    S.traidor = S.x.traidor
     
+  def initialize(S):
+    pass
+    
+  def getName(S):
+    return 'ValueBot'
+    
+  def trade(S, trade):
+    if ( S.x.last_price < S.last_price ):
+      S.direction = 'down'
+    else:
+      S.direction = 'up'
+    S.last_price = S.x.last_price
+    
+  def info(S):
+    rc = "ValueBot Info:\n"
+    rc += "  direction: %s" % S.direction
+    return rc
+
 class TriggerBot(Bot):
   def __init__(S, exchange, trigger):
     Bot.__init__(S, exchange)

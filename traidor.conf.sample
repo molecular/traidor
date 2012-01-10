@@ -1,6 +1,7 @@
 [main]
 donated=true
 debug=true
+continue_on_exception=false
 initial_depth_display_height=20
 
 [mtgox]

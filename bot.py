@@ -1,13 +1,17 @@
 from common import *
 from decimal import Decimal as D
 from threading import *
-import time
+from time import *
+import math as m
 
 __all__ = ["Bot", "BeepBot", "ValueBot", "TriggerBot", "EquilibriumBot"]
 
 class Bot:
   def __init__(S, exchange):
     S.x = exchange
+    
+  def initialize(S):
+    pass
     
   def getName(S):
     return 'generic Bot'
@@ -24,7 +28,7 @@ class Bot:
 class ThreadedBot(Bot):
   def __init__(S, exchange, interval_ms):
     Bot.__init__(S, exchange)
-    S.interval = interval_ms
+    S.thread_interval = interval_ms
     
   def initialize(S):
     S.run = True
@@ -37,7 +41,7 @@ class ThreadedBot(Bot):
   def __call__(S):
     while S.run:
       S.act()
-      time.sleep(S.interval)
+      sleep(S.thread_interval)
 
   def act(S):
     print 'ThreadedBot act() called, implement subclass'
@@ -65,11 +69,14 @@ class BeepBot(Bot):
     S.last_price = S.x.last_price
 
 class ValueBot(ThreadedBot):
-  def __init__(S, exchange, interval_ms):
+  def __init__(S, exchange, interval_ms, interval):
     ThreadedBot.__init__(S, exchange, interval_ms)
     S.last_price = S.x.last_price
     S.traidor = S.x.traidor
     S.direction = ''
+    S.interval = interval
+    S.vol = D('0')
+    S.hotvol = 0.0
     
   def initialize(S):
     ThreadedBot.initialize(S)
@@ -85,13 +92,27 @@ class ValueBot(ThreadedBot):
     S.last_price = S.x.last_price
 
   def act(S):
-    pass
-    #S.output(S.info())
+    S.vol = D('0')
+    S.hotvol = 0.0
+    for t in S.x.getTrades():
+      now = mktime(localtime())
+      tm = mktime(localtime(t.time))
+      diff = now - tm
+      #print diff
+      if diff < S.interval:
+        #print t.str()
+        S.vol += t.amount
+        if float(diff) != 0.0: S.hotvol += m.pow(float(t.amount), 1.0/float(diff))
+        else: S.hotvol = -0.0
+    S.output(S.info())
 
   def info(S):
     rc = "ValueBot Info:\n"
     rc += "  direction: %s\n" % S.direction
     rc += "trading fee: %s%%\n" % (S.x.getTradeFee() * 100)
+    rc += "   interval: %s\n" % (S.interval)
+    rc += "     volume: %s\n" % (S.vol)
+    rc += " hot volume: %f\n" % (S.hotvol)
     return rc
 
 class TriggerBot(Bot):

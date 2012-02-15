@@ -126,6 +126,9 @@ class MtGox (Exchange):
   def getUSD(S): 
     return S.info['Wallets']['USD']['Balance']['value']
     #return D(S.info['Wallets']['USD']['Balance']['value'])
+    
+  def getTrades(S):
+    return S.trades
 
   def get_order(S, oid):
     # woah, friggin linear search, do something !! ^^
@@ -337,7 +340,7 @@ class MtGox (Exchange):
       url += "&since=" + S.trades[-1].tid
     else:
       S.trades = list()
-      url += "&since=1326237516441964"
+      url += "&since=1326403854688544"
     print 'url: ', url
     S.trades2 = S.request_json_authed(url)
     for trade in S.trades2:
@@ -612,7 +615,8 @@ class MtGox (Exchange):
       elif cmd[0] == 'o': 
         #S.traidor.auto_update_depth = False
         S.freeze_depth_update = 20
-        rc = S.request_orders(); 
+        rc = S.request_orders()
+        S.request_info()
         S.datalock.acquire()
         S.orders = rc
         S.datalock.release()

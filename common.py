@@ -18,7 +18,7 @@ class Trade:
     (S.tid, S.time, S.amount, S.price, S.type) = (tid, time, D(amount), D(price), type)
     
   def str(S):
-    return "%i: {%s} | %s for %s - %s" % (S.time, S.tid, S.amount, S.price, S.type)
+    return "%s: {%s} | %s for %s - %s" % (time.strftime('%H:%M:%S',time.localtime(S.time)), S.tid, S.amount, S.price, S.type)
 
 # talking
 def say(text):

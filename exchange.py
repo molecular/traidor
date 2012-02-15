@@ -24,6 +24,9 @@ class Exchange:
     rc += " | [h]elp #> "
     return rc
     
+  def getTrades(S):
+    pass
+    
   def getTradeFee(S):
     return(D(10))
     

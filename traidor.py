@@ -122,7 +122,9 @@ class Traidor:
       elif cmd[:2] == 'tb': # TriggerBot
         S.addBot(TriggerBot(t, cmd[2:]), True)
       elif cmd[:2] == 'vb': # ValueBot
-        S.value_bot = ValueBot(t.exchange, float(cmd[2:]))
+        paras = cmd[3:].split(' ')
+        print paras
+        S.value_bot = ValueBot(t.exchange, float(paras[0]), float(paras[1]))
         S.addBot(S.value_bot, True)
       elif cmd[:2] == 'v': # ValueBot info()
         try: S.value_bot 
@@ -175,7 +177,12 @@ class Traidor:
       
     # autoexec
     if S.debug: print 'running autoexec: "%s"...' % S.autoexec
-    S.cmd(S.autoexec, True)
+    try:
+      S.cmd(S.autoexec, True)
+    except:
+      traceback.print_exc()
+      print 'autoexec failed'
+      return
     
     if S.debug: print 'ready'
       

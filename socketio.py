@@ -19,12 +19,14 @@ class SocketIO:
       response = urllib2.urlopen(req)
       r = response.read().split(':')
       S.heartbeat_interval = int(r[1])
-      print 'heartbeat: ', S.heartbeat_interval
+      #print 'heartbeat: ', S.heartbeat_interval
       if 'websocket' in r[3].split(','):
         print "good: transport 'websocket' supported by socket.io server ", S.url
         S.id = r[0]
         print "id: ", S.id
-
+      else:
+        print "error: transport 'websocket' NOT supported by socket.io server ", S.url
+        
       S.thread = Thread(target = S.thread_func)
       S.thread.setDaemon(True)
       S.thread.start()

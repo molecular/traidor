@@ -254,7 +254,7 @@ class MtGox (Exchange):
         S.last_depth_update = time.time()
         S.depth_invalid_counter += 1
 
-        S.traidor.cmd('ps gligg.wav')
+        #S.traidor.cmd('ps gligg.wav')
         time.sleep(0.01)
         
         S.datalock.release()

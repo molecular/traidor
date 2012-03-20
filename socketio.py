@@ -32,7 +32,12 @@ class SocketIO:
       S.thread.start()
     except:
       traceback.print_exc()      
-
+      print "connection attempt aborted due to above exception, sleeping for a bit...";
+      time.sleep(11)
+      
+  def unsubscribe(S, channel_id):
+    S.ws.send('4::/mtgox:{"op":"unsubscribe","channel":"%s"}' % channel_id)
+    
   def stop(S):
     S.run = False
     S.thread.join(timeout=1)
@@ -42,30 +47,35 @@ class SocketIO:
   def thread_func(S):
     print 'SocketIO: websocket thread started'
     
-    my_url = 'wss://' + S.url + "/1/websocket/" + S.id
-    
-    S.ws = create_connection(my_url)
-    
-    #S.ws = WebSocket(my_url, version=0) 
-    S.run = True
-    S.ws.send('1::/mtgox')
+    try:
+      my_url = 'wss://' + S.url + "/1/websocket/" + S.id
+      
+      S.ws = create_connection(my_url)
+      
+      #S.ws = WebSocket(my_url, version=0) 
+      S.ws.send('1::/mtgox')
 
-    # start keepalive thread
-    S.keepalive_thread = Thread(target = S.keepalive_func)
-    S.keepalive_thread.setDaemon(True)
-    S.keepalive_thread.start()
-    
-    msg = S.ws.recv()
-    while msg is not None and S.run:
-      #print 'SocketIO msg: ', msg
-      if msg[:10] == "4::/mtgox:":
-        S.callback(msg[10:])
-      #elif msg[:3] == "2::":
-      #  True
-      #else:
-      #  print "SocketIO: dont know how to handle msg: ", msg
+      # start keepalive thread
+      S.keepalive_thread = Thread(target = S.keepalive_func)
+      S.keepalive_thread.setDaemon(True)
+      S.run = True
+      S.keepalive_thread.start()
+      
       msg = S.ws.recv()
-    S.ws.close()
+      while msg is not None and S.run:
+        #print 'SocketIO msg: ', msg
+        if msg[:10] == "4::/mtgox:":
+          S.callback(msg[10:])
+        #elif msg[:3] == "2::":
+        #  True
+        #else:
+        #  print "SocketIO: dont know how to handle msg: ", msg
+        msg = S.ws.recv()
+      S.ws.close()
+    except:
+      traceback.print_exc()      
+      print 'exception in thread_func(), exit after sleep...'
+      time.sleep(3)
       
   def keepalive_func(S):
     while S.run:
@@ -73,7 +83,9 @@ class SocketIO:
         S.ws.send('2::');
       except:
         if S.run:
-          print 'error sending keepalive socket.io, trying reconnect'
+          print 'error sending keepalive socket.io, trying reconnect after sleep...'
+          S.run = False
+          time.sleep(3)
           S.connect()
         else:
           print 'exiting socket.io keepalive thread'

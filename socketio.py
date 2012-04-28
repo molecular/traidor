@@ -1,6 +1,7 @@
 from threading import *
 import urllib2, urllib
-import simplejson as json
+try: import simplejson as json
+except ImportError: import json
 import ssl, socket
 import time
 from websocket_client import create_connection

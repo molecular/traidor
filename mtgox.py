@@ -5,7 +5,8 @@ from websocket import WebSocket
 import sys, os
 import time
 import subprocess
-import simplejson as json
+try: import simplejson as json
+except ImportError: import json
 import urllib, urllib2 #, httplib2
 import common
 from socketio import SocketIO

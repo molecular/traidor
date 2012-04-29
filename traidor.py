@@ -29,7 +29,7 @@ from mtgox import *
 class Traidor:
   def __init__(S):
     S.displaylock = Lock()
-    S.auto_update_trade = True
+    # S.auto_update_trade = True
     S.auto_update_depth = True
 
     # parse configfile

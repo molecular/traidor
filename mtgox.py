@@ -605,11 +605,11 @@ class MtGox (Exchange):
         S.start_ws()
       elif cmd[0] == 'b' or cmd[0] == 's': 
         #S.traidor.auto_update_depth = False
-        S.freeze_depth_update = 4
+        S.freeze_depth_update = 7
         S.trade(cmd, is_bot)
       elif cmd[0] == 'c': 
-        S.traidor.auto_update_depth = False
-        #S.freeze_depth_update = 4
+        # S.traidor.auto_update_depth = False
+        S.freeze_depth_update = 7
         S.cancel_order(cmd, is_bot); 
         S.show_orders()
       elif cmd[0] == 'o': 

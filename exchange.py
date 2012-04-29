@@ -1,5 +1,6 @@
 import urllib, urllib2 #, httplib2
-import simplejson as json
+try: import simplejson as json
+except ImportError: import json
 from common import *
 
 __all__ = ["Exchange"]

@@ -11,7 +11,7 @@ the code is very much a work in progress, if you expect production quality code 
 DEPENDENCIES (likely incomplete)
 --------------------------------
 
- * simplejson
+ * simplejson (included in python 2.6+)
  * pygame (four sound)
  * websocket4 (included, I guess)
  * ...

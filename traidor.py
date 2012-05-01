@@ -1,3 +1,4 @@
+#!/usr/bin/python
 '''
     Copyright (C) Nicolas Fischer, molec@gmx.de
     
@@ -15,7 +16,6 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
-#!/usr/bin/python
           
 # maybe alternative for /code/getTrades.php before websocket is back
 # http://bitcoincharts.com/t/trades.csv?symbol=mtgoxUSD&start=$UNIXTIME

@@ -36,7 +36,7 @@ class SocketIO:
       print 'https://' + S.url + "/1"
       response = urllib2.urlopen(req)
       r = response.read().split(':')
-      S.heartbeat_interval = int(r[1])
+      S.heartbeat_interval = int(float(r[1]) * .85)
       #print 'heartbeat: ', S.heartbeat_interval
       if 'websocket' in r[3].split(','):
         print "good: transport 'websocket' supported by socket.io server ", S.url

@@ -31,6 +31,7 @@ class SocketIO:
     
   def connect(S):
     try:
+      # data = urllib.urlencode({'Currency':'EUR,GBP'})
       data = urllib.urlencode({})
       req = urllib2.Request('https://' + S.url + "/1", data)
       print 'https://' + S.url + "/1"
@@ -70,7 +71,7 @@ class SocketIO:
     S.ws = create_connection(my_url)
     
     #S.ws = WebSocket(my_url, version=0) 
-    S.ws.send('1::/mtgox')
+    S.ws.send('1::/mtgox') #?Currency=USD,EUR,GBP,JPY')
 
     # start keepalive thread
     S.keepalive_thread = Thread(target = S.keepalive_func)
@@ -84,8 +85,9 @@ class SocketIO:
         #print 'SocketIO msg: ', msg
         if msg[:10] == "4::/mtgox:":
           S.callback(msg[10:])
-        #elif msg[:3] == "2::":
-        #  True
+        elif msg[:3] == "2::":
+        #  S.callback(msg[10:])
+          True
         #else:
         #  print "SocketIO: dont know how to handle msg: ", msg
         msg = S.ws.recv()

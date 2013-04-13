@@ -37,6 +37,7 @@ class SocketIO:
       print 'https://' + S.url + "/1"
       response = urllib2.urlopen(req)
       r = response.read().split(':')
+      print 'response: ' + ':'.join(r)
       S.heartbeat_interval = int(float(r[1]) * .85)
       #print 'heartbeat: ', S.heartbeat_interval
       if 'websocket' in r[3].split(','):

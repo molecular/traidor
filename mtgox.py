@@ -161,6 +161,7 @@ class MtGox (Exchange):
     return S.orders
 
   def do_trade(S, type, vol, price):
+    type2 = type
     if type=='sell': type2 = 'ask'
     if type=='buy': type2 = 'bid'
     result = S.request_json_authed('/api/1/BTCUSD/private/order/add', params = {'type': type2, 'amount': vol, 'price': price})
@@ -171,11 +172,15 @@ class MtGox (Exchange):
   def do_cancel_order(S, oid):
     print 'CANCELLING order {%s}' % oid
     o = S.get_order(oid)
-    result = S.request_json_authed('/code/cancelOrder.php', {'oid': o['oid'], 'type': o['type']})
+    #result = S.request_json_authed('/code/cancelOrder.php', {'oid': o['oid'], 'type': o['type']})
+    result = S.request_json_authed('/api/1/BTCUSD/private/order/cancel', {'oid': o['oid']})
+    print result
     S.orders = S.request_orders()
     
   def do_cancel_all_orders(S):
+    S.orders = S.request_orders()
     oids = list()
+    print S.get_orders()
     for o in S.get_orders():
       oids.append(o['oid'])
     for oid in oids:
@@ -183,7 +188,7 @@ class MtGox (Exchange):
 
   def eval(S, base):
     delta = S.getBTC() - base
-    corrected_usd = S.getUSD() + (S.last_price * delta * (D('1.0') - S.getTradeFee()))
+    corrected_usd = S.getUSD() + (S.last_price * delta * (D('1.0') + S.getTradeFee()))
     return corrected_usd
     
   # --- websocket callbacks --------------------------------------------------------------------------------------------------
@@ -295,7 +300,7 @@ class MtGox (Exchange):
     headers["User-Agent"] = "GoxApi"
     headers["Rest-Key"] = S.auth_key
     headers["Rest-Sign"] = sign_data(S.auth_secret, data)
-    req = urllib2.Request("https://mtgox.com" + url, data, headers)
+    req = urllib2.Request("http://data.mtgox.com" + url, data, headers)
     success = False
     while not success:
       try:
@@ -313,7 +318,7 @@ class MtGox (Exchange):
     rc = S.request_json(url, params);
     duration = time.time() - start_time
     if S.debug_request_timing:
-      debug_print('requesting https://mtgox.com:443%s took %s seconds' % (url, duration))
+      debug_print('requesting https://data.mtgox.com:443%s took %s seconds' % (url, duration))
     try:
       if rc.has_key('error'):
         print 'mtgox error: ', rc['error']
@@ -321,7 +326,7 @@ class MtGox (Exchange):
     return rc
 
   def request_market(S):
-    S.market = S.request_json('/api/1/BTCUSD/public/depth?raw')
+    S.market = S.request_json('/api/1/BTCUSD/public/depth')["return"]
     
     #S.highest_bid = sorted(S.market['bids'], reverse=True)['price'];
     #S.lowest_ask = sorted(S.market['asks'])['price'];
@@ -352,15 +357,15 @@ class MtGox (Exchange):
 
   def request_trades(S):
     S.datalock.acquire()
-    url = '/api/1/BTCUSD/public/trades?raw'
+    url = '/api/1/BTCUSD/public/trades'
     if len(S.trades) > 0:
       print S.trades[-1].tid
       url += "&since=" + S.trades[-1].tid
     else:
       S.trades = list()
-      url += "&since=1326403854688544"
+      #url += "&since=1326403854688544"
     print 'url: ', url
-    S.trades2 = S.request_json_authed(url)
+    S.trades2 = S.request_json_authed(url)["return"]
     for trade in S.trades2:
       S.trades.append(Trade(trade['tid'], trade['date'], trade['amount'], trade['price'], trade['trade_type']))
     S.last_price = S.trades[-1].price

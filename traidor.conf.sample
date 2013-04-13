@@ -2,6 +2,7 @@
 donated=true
 debug=true
 continue_on_exception=false
+auto_update_depth=false
 initial_depth_display_height=20
 autoexec=vb 5
 
@@ -10,7 +11,7 @@ auth_key=<mtgox api key>
 auth_secret=<mtgox api secret>
 debug=true
 use_websockets=true
-debug_websockets=false
+debug_websockets=true
 debug_request_timing=true
 request_timeout_secs=10
 

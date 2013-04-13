@@ -61,6 +61,7 @@ class Traidor:
     S.donated = parser.getboolean('main', 'donated')
     S.debug = parser.getboolean('main', 'debug')
     S.continue_on_exception = parser.getboolean('main', 'continue_on_exception')
+    S.auto_update_depth = parser.getboolean('main', 'auto_update_depth')
     S.display_height = int(parser.get('main','initial_depth_display_height'))
     S.autoexec = parser.get('main', 'autoexec')
     #lines = os.environ['LINES']
@@ -143,11 +144,13 @@ class Traidor:
         print paras
         S.value_bot = ValueBot(t.exchange, float(paras[0]), float(paras[1]))
         S.addBot(S.value_bot, True)
-      elif cmd[:2] == 'v': # ValueBot info()
+      elif cmd[:1] == 'v': # ValueBot info()
         try: S.value_bot 
         except:
-          S.cmd('vb 1000')
+          S.cmd('vb 5 300')
         print S.value_bot.info()
+      elif cmd[:2] == 'eb': # EquilibriumBot
+        S.addBot(EquilibriumBot(S.exchange, D('0.0'), D('0'), D('1.0'), D('0.01')), True) # btc add, usd add, fund_multiplier, desired_amount
       elif cmd[:2] == 'wx' or cmd[:3] == 'gui':
         wx = TraidorApp(t)
         S.addBot(wx, True)
@@ -179,14 +182,15 @@ class Traidor:
   def __call__(S): # mainloop
     S.run = True
     
-    # initial for bot, ned so wichtig auf dauer, kost zeit
-    # abhilfe: unten bei initialize bots nen fake-trade reinschreiben
-    # es geht glaub nur um S.last_trade? oder?
-    #S.request_trades()
 
     if S.debug: print 'starting exchanges...'
     for x in S.exchanges:
       x.start()
+      
+      # initial for bot, ned so wichtig auf dauer, kost zeit
+      # abhilfe: unten bei initialize bots nen fake-trade reinschreiben
+      # es geht glaub nur um S.last_trade? oder?
+      x.request_trades()
 
     if S.debug: print 'initializing bots...'
     for bot in S.bots:
@@ -202,8 +206,7 @@ class Traidor:
       return
     
     if S.debug: print 'ready'
-      
-
+    
     counter = 0
     while (S.run):
       try:
@@ -237,9 +240,8 @@ class Traidor:
 t = Traidor()
 if pygame_enabled: pygame.init()
 
-#t.addBot(BeepBot(t.exchange), False)
+t.addBot(BeepBot(t.exchange), False)
 
-#t.addBot(EquilibriumBot(t, D('0.0'), D('0'), D('3.0'), D('0.2'))) # btc add, usd add, fund_multiplier, desired_amount
 #t.cmd("tb >= 14.80 ps alarm.wav")
 #t.cmd("tb <= 14.40 ps alarm2.wav")
 #t.mainloop()
